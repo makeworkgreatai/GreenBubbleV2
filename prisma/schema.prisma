@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Enums ---
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+  ZONE_CAPTAIN
+  PHONE_OPERATOR
+  VIEWER
+}
+
+// --- Core Models ---
+
+model Zone {
+  id        Int        @id @default(autoincrement())
+  number    Int        @unique
+  name      String
+  active    Boolean    @default(true)
+  locations Location[]
+  users     User[]
+
+  @@map("zones")
+}
+
+model Location {
+  id        Int              @id @default(autoincrement())
+  name      String
+  address   String
+  city      String           @default("")
+  state     String           @default("OH")
+  lat       Float?
+  lng       Float?
+  zoneId    Int              @map("zone_id")
+  zone      Zone             @relation(fields: [zoneId], references: [id])
+  version   Int              @default(0) // optimistic locking
+  statuses  LocationStatus[]
+  contacts  Contact[]
+  precincts Precinct[]
+
+  @@map("locations")
+}
+
+model StatusMilestone {
+  id           Int              @id @default(autoincrement())
+  key          String           @unique // e.g. "monday_delivery"
+  label        String // e.g. "Monday Delivery"
+  displayOrder Int              @map("display_order")
+  statuses     LocationStatus[]
+
+  @@map("status_milestones")
+}
+
+model LocationStatus {
+  id          Int             @id @default(autoincrement())
+  locationId  Int             @map("location_id")
+  location    Location        @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  milestoneId Int             @map("milestone_id")
+  milestone   StatusMilestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  value       Boolean         @default(false)
+  updatedBy   Int?            @map("updated_by")
+  updatedByUser User?         @relation(fields: [updatedBy], references: [id])
+  updatedAt   DateTime        @default(now()) @map("updated_at")
+
+  @@unique([locationId, milestoneId])
+  @@map("location_statuses")
+}
+
+model Contact {
+  id         Int      @id @default(autoincrement())
+  locationId Int      @map("location_id")
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  firstName  String   @map("first_name")
+  lastName   String   @map("last_name")
+  type       String // e.g. "Presiding Judge", "Building Contact"
+  phone      String
+
+  @@map("contacts")
+}
+
+model Precinct {
+  id         Int      @id @default(autoincrement())
+  locationId Int      @map("location_id")
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  wardName   String   @map("ward_name")
+  label      String // e.g. "1A", "2B.01"
+
+  @@map("precincts")
+}
+
+// --- Auth ---
+
+model User {
+  id          Int              @id @default(autoincrement())
+  displayName String           @map("display_name")
+  pinHash     String           @map("pin_hash")
+  role        Role
+  zoneId      Int?             @map("zone_id") // only for ZONE_CAPTAIN
+  zone        Zone?            @relation(fields: [zoneId], references: [id])
+  active      Boolean          @default(true)
+  expiresAt   DateTime?        @map("expires_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  statuses    LocationStatus[]
+  auditLogs   AuditLog[]
+  importLogs  ImportLog[]
+
+  @@map("users")
+}
+
+// --- Tracking ---
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  locationId Int?     @map("location_id")
+  field      String // e.g. "monday_delivery", "login", "board_reset"
+  oldValue   String?  @map("old_value")
+  newValue   String?  @map("new_value")
+  userId     Int?     @map("user_id")
+  user       User?    @relation(fields: [userId], references: [id])
+  reason     String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}
+
+model ImportLog {
+  id        Int      @id @default(autoincrement())
+  fileType  String   @map("file_type")
+  fileName  String   @map("file_name")
+  rowCount  Int      @map("row_count")
+  status    String // "success" | "failed"
+  errors    Json?
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("import_logs")
+}
