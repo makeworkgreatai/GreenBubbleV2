@@ -153,7 +153,7 @@ async function main() {
 
   await prisma.user.createMany({
     data: [
-      { displayName: "Admin User", pinHash: adminPin, role: Role.ADMIN, active: true },
+      { displayName: "GB Admin", pinHash: adminPin, role: Role.ADMIN, active: true },
       { displayName: "Supervisor", pinHash: superPin, role: Role.SUPERVISOR, active: true },
       { displayName: "Zone 1 Captain", pinHash: captainPin, role: Role.ZONE_CAPTAIN, zoneId: zoneMap[1], active: true },
       { displayName: "Phone Op", pinHash: operatorPin, role: Role.PHONE_OPERATOR, active: true },
