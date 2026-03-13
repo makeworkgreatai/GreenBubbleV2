@@ -42,6 +42,11 @@ interface Props {
   sortCol: string;
   sortDir: "asc" | "desc";
   onSort: (col: string) => void;
+  editMode: boolean;
+  onEditField: (locationId: number, field: string, value: string, index?: number) => void;
+  onAddItem: (locationId: number, field: string) => void;
+  onAddRow: () => void;
+  onDeleteRow: (locationId: number) => void;
 }
 
 function formatPhone(raw: string): string {
@@ -178,6 +183,67 @@ function EyeButton({ label, show, onToggle }: { label: string; show: boolean; on
   );
 }
 
+function EditableCell({
+  value,
+  onSave,
+  className = "",
+  allowEmpty = true,
+}: {
+  value: string;
+  onSave: (newValue: string) => void;
+  className?: string;
+  allowEmpty?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function startEdit() {
+    setDraft(value);
+    setEditing(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function save() {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed !== value) {
+      if (trimmed || allowEmpty) {
+        onSave(trimmed);
+      }
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") save();
+    if (e.key === "Escape") setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={handleKeyDown}
+        placeholder={allowEmpty ? "Clear to delete" : ""}
+        className={`w-full bg-yellow-50 border border-yellow-400 rounded px-1 py-0.5 outline-none focus:ring-2 focus:ring-yellow-400 ${className}`}
+      />
+    );
+  }
+
+  return (
+    <span
+      onClick={startEdit}
+      className={`cursor-pointer hover:bg-yellow-100 rounded px-0.5 -mx-0.5 ${className}`}
+      title="Click to edit"
+    >
+      {value || "—"}
+    </span>
+  );
+}
+
 function SortArrow({ col, sortCol, sortDir }: { col: string; sortCol: string; sortDir: string }) {
   if (col !== sortCol) return <span className="text-black ml-1">↕</span>;
   return <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
@@ -193,6 +259,11 @@ export function BubbleBoard({
   sortCol,
   sortDir,
   onSort,
+  editMode,
+  onEditField,
+  onAddItem,
+  onAddRow,
+  onDeleteRow,
 }: Props) {
   const [showPoll, setShowPoll] = useState(true);
   const [showLocation, setShowLocation] = useState(true);
@@ -222,11 +293,12 @@ export function BubbleBoard({
 
   return (
     <div>
-      <div className="overflow-auto max-h-[calc(100dvh-90px)] border-t-4 border-gray-400">
+      <div className={`overflow-auto max-h-[calc(100dvh-90px)] border-t-4 ${editMode ? "border-yellow-400" : "border-gray-400"}`}>
       <table className="w-full border-collapse [&_th]:border-r [&_th]:border-black/50 [&_td]:border-r [&_td]:border-black/50 [&_th:last-child]:border-r-0 [&_td:last-child]:border-r-0 [&_th]:shadow-[inset_0_3px_1px_rgba(255,255,255,0.5),inset_0_-3px_1px_rgba(0,0,0,0.2)]">
-        <thead className="sticky -top-px z-10 shadow-[0_3px_6px_rgba(0,0,0,0.2)]">
+        <thead className="sticky -top-px z-10 shadow-[0_3px_6px_rgba(0,0,0,0.2)] will-change-transform [transform:translateZ(0)]">
           {/* Column headers */}
           <tr className="border-b-2 border-black/50 text-black">
+            {editMode && <th className="w-8 bg-red-200"></th>}
             {showPoll ? (
               <th
                 onClick={() => onSort("pollId")}
@@ -377,6 +449,10 @@ export function BubbleBoard({
               canEdit={canEdit && canUserEditZone(userRole, userZoneId, loc.zoneId)}
               onToggle={onToggle}
               showCols={{ poll: showPoll, location: showLocation, zone: showZone, city: showCity, contact: showContact, mon: showMon, tue: showTue }}
+              editMode={editMode}
+              onEditField={onEditField}
+              onAddItem={onAddItem}
+              onDeleteRow={onDeleteRow}
             />
           ))}
           {locations.length === 0 && (
@@ -386,6 +462,21 @@ export function BubbleBoard({
                 className="py-8 text-center text-black text-lg font-medium"
               >
                 No locations found
+              </td>
+            </tr>
+          )}
+          {editMode && (
+            <tr className="border-b border-black/50">
+              <td
+                colSpan={5 + (!showMon ? 1 : monMilestones.length) + (!showTue ? 1 : tueMilestones.length)}
+                className="py-2 px-3 text-center"
+              >
+                <button
+                  onClick={onAddRow}
+                  className="px-4 py-1.5 rounded-md bg-green-600 text-white text-sm font-bold hover:bg-green-700"
+                >
+                  + Add Location Row
+                </button>
               </td>
             </tr>
           )}
@@ -403,6 +494,10 @@ function LocationRow({
   canEdit,
   onToggle,
   showCols,
+  editMode,
+  onEditField,
+  onAddItem,
+  onDeleteRow,
 }: {
   location: Location;
   milestones: Milestone[];
@@ -410,6 +505,10 @@ function LocationRow({
   canEdit: boolean;
   onToggle: (locationId: number, milestoneId: number) => void;
   showCols: { poll: boolean; location: boolean; zone: boolean; city: boolean; contact: boolean; mon: boolean; tue: boolean };
+  editMode: boolean;
+  onEditField: (locationId: number, field: string, value: string, index?: number) => void;
+  onAddItem: (locationId: number, field: string) => void;
+  onDeleteRow: (locationId: number) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const precinctStr = location.precincts.map((p) => p.label).join(", ");
@@ -426,7 +525,7 @@ function LocationRow({
   const allDone = monDone && tueDone;
 
   const dataCellHover = hovered && !allDone ? "bg-blue-200" : "";
-  const rowBg = allDone ? "" : "even:bg-gray-200/60 odd:bg-white";
+  const rowBg = allDone ? "bg-green-200" : "even:bg-gray-200/60 odd:bg-white";
 
   return (
     <tr
@@ -434,15 +533,51 @@ function LocationRow({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      {editMode && (
+        <td className="py-2 px-1 text-center align-middle w-8">
+          <button
+            onClick={() => { if (confirm(`Delete "${location.name}"?`)) onDeleteRow(location.id); }}
+            className="w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold hover:bg-red-700 flex items-center justify-center mx-auto"
+            title="Delete row"
+          >✕</button>
+        </td>
+      )}
       {showCols.poll ? (
         <td className={`py-2 px-3 text-center align-middle font-mono text-[16px] font-bold text-black/85 ${dataCellHover}`}>
-          {location.pollId || "—"}
+          {editMode ? (
+            <EditableCell
+              value={location.pollId || ""}
+              onSave={(v) => onEditField(location.id, "pollId", v)}
+              className="font-mono text-[16px] font-bold text-center"
+            />
+          ) : (
+            location.pollId || "—"
+          )}
         </td>
       ) : <td className="w-6" />}
       {showCols.location ? (
         <td className={`py-2 px-3 text-left align-middle ${dataCellHover}`}>
-          <div className="font-bold text-[16px] text-black leading-snug">{location.name}</div>
-          <div className="text-[13px] font-medium text-black/75 leading-snug">{location.address}</div>
+          {editMode ? (
+            <>
+              <EditableCell
+                value={location.name}
+                onSave={(v) => onEditField(location.id, "name", v)}
+                className="font-bold text-[16px] text-black"
+                allowEmpty={false}
+              />
+              <EditableCell
+                value={location.address}
+                onSave={(v) => onEditField(location.id, "address", v)}
+                className="text-[13px] font-medium text-black/75"
+                allowEmpty={false}
+              />
+            </>
+          ) : (
+            <>
+              <div className="font-bold text-[16px] text-black leading-snug">{location.name}</div>
+              <div className="text-[13px] font-medium text-black/75 leading-snug">{location.address}</div>
+            </>
+          )}
         </td>
       ) : <td className="w-6" />}
       {showCols.zone ? (
@@ -454,11 +589,39 @@ function LocationRow({
       ) : <td className="w-6" />}
       {showCols.city ? (
         <td className={`py-2 px-3 text-left align-middle ${dataCellHover}`}>
-          <div className="font-bold text-[16px] text-black leading-snug">{location.city}</div>
-          <div className="text-[13px] font-medium text-black/75 leading-snug">{precinctStr || "—"}</div>
+          {editMode ? (
+            <>
+              <EditableCell
+                value={location.city}
+                onSave={(v) => onEditField(location.id, "city", v)}
+                className="font-bold text-[16px] text-black"
+                allowEmpty={false}
+              />
+              <div className="flex flex-wrap gap-x-1 items-center">
+                {location.precincts.map((p, i) => (
+                  <EditableCell
+                    key={i}
+                    value={p.label}
+                    onSave={(v) => onEditField(location.id, "precinctLabel", v, i)}
+                    className="text-[13px] font-medium text-black/75"
+                  />
+                ))}
+                <button
+                  onClick={() => onAddItem(location.id, "precinct")}
+                  className="w-5 h-5 rounded-full bg-green-500 text-white text-xs font-bold hover:bg-green-600 flex items-center justify-center"
+                  title="Add precinct"
+                >+</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="font-bold text-[16px] text-black leading-snug">{location.city}</div>
+              <div className="text-[13px] font-medium text-black/75 leading-snug">{precinctStr || "—"}</div>
+            </>
+          )}
         </td>
       ) : <td className="w-6" />}
-      {showCols.contact ? <ContactCell contact={contact} hovered={dataCellHover} /> : <td className="w-6" />}
+      {showCols.contact ? <ContactCell contact={contact} hovered={dataCellHover} editMode={editMode} locationId={location.id} onEditField={onEditField} onAddItem={onAddItem} /> : <td className="w-6" />}
       {showCols.mon ? (
         milestones.filter((m) => milestoneHeader(m.label).day === "Mon").map((m, idx) => {
           const status = location.statuses.find((s) => s.milestoneId === m.id);
@@ -514,9 +677,17 @@ function LocationRow({
 function ContactCell({
   contact,
   hovered,
+  editMode,
+  locationId,
+  onEditField,
+  onAddItem,
 }: {
   contact: { name: string; phones: { label: string; number: string }[] } | undefined;
   hovered: string;
+  editMode: boolean;
+  locationId: number;
+  onEditField: (locationId: number, field: string, value: string, index?: number) => void;
+  onAddItem: (locationId: number, field: string) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -532,7 +703,14 @@ function ContactCell({
   if (!contact) {
     return (
       <td className={`py-2 px-3 text-left align-middle ${hovered}`}>
-        <span className="text-[16px] text-black">—</span>
+        {editMode ? (
+          <button
+            onClick={() => onAddItem(locationId, "contact")}
+            className="px-2 py-0.5 rounded bg-green-500 text-white text-xs font-bold hover:bg-green-600"
+          >+ Contact</button>
+        ) : (
+          <span className="text-[16px] text-black">—</span>
+        )}
       </td>
     );
   }
@@ -545,8 +723,38 @@ function ContactCell({
       onMouseLeave={handleLeave}
     >
       <div>
-        <div className="text-[16px] font-bold text-black leading-snug">{contact.name}</div>
-        {showAll ? (
+        {editMode ? (
+          <EditableCell
+            value={contact.name}
+            onSave={(v) => onEditField(locationId, "contactName", v)}
+            className="text-[16px] font-bold text-black"
+          />
+        ) : (
+          <div className="text-[16px] font-bold text-black leading-snug">{contact.name}</div>
+        )}
+        {editMode ? (
+          <>
+            {contact.phones.map((p, i) => (
+              <div key={i} className="flex items-center gap-1">
+                <EditableCell
+                  value={p.number}
+                  onSave={(v) => onEditField(locationId, "contactPhone", v, i)}
+                  className="text-[13px] font-medium text-black/75"
+                />
+                <EditableCell
+                  value={p.label}
+                  onSave={(v) => onEditField(locationId, "contactPhoneLabel", v, i)}
+                  className="text-[11px] text-black/50"
+                />
+              </div>
+            ))}
+            <button
+              onClick={() => onAddItem(locationId, "contactPhone")}
+              className="w-5 h-5 rounded-full bg-green-500 text-white text-xs font-bold hover:bg-green-600 flex items-center justify-center mt-0.5"
+              title="Add phone"
+            >+</button>
+          </>
+        ) : showAll ? (
           contact.phones.map((p, i) => (
             <div key={i} className="text-[13px] font-medium text-black/75 whitespace-nowrap leading-snug">
               {formatPhone(p.number)} <span className="text-black">{phoneAbbrev(p.label)}</span>
@@ -557,7 +765,7 @@ function ContactCell({
             {formatPhone(contact.phones[0]?.number || "")}
           </div>
         )}
-        {hasMore && !showAll && (
+        {!editMode && hasMore && !showAll && (
           <div
             className="absolute bottom-1 right-1"
             onMouseEnter={handleEnter}
@@ -599,7 +807,7 @@ function StatusBubble({
   const done = status?.value ?? false;
   const updatedBy = status?.updatedByUser?.displayName;
   const updatedAt = status?.updatedAt
-    ? new Date(status.updatedAt).toLocaleString()
+    ? new Date(status.updatedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })
     : null;
 
   const tooltipText = updatedBy

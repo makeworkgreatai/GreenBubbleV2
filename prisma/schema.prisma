@@ -111,6 +111,7 @@ model User {
   statuses    LocationStatus[]
   auditLogs   AuditLog[]
   importLogs  ImportLog[]
+  snapshots   DashboardSnapshot[]
 
   @@map("users")
 }
@@ -143,4 +144,15 @@ model ImportLog {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("import_logs")
+}
+
+model DashboardSnapshot {
+  id        Int      @id @default(autoincrement())
+  name      String
+  data      Json // full snapshot of locations, contacts, precincts, statuses
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("dashboard_snapshots")
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { LogoutButton } from "./logout-button";
 import { BubbleBoard } from "./bubble-board";
 
@@ -33,8 +33,35 @@ function LogoBubble({ defaultIdx = 1, delay = 0 }: { defaultIdx?: number; delay?
   );
 }
 
-function ResetBoardButton({ onReset }: { onReset: () => void }) {
+async function downloadAuditCSV() {
+  const res = await fetch("/api/admin/audit");
+  if (!res.ok) return false;
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || "audit-log.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+  return true;
+}
+
+function SaveAuditButton() {
+  const [saving, setSaving] = useState(false);
+  return (
+    <button
+      onClick={async () => { setSaving(true); await downloadAuditCSV(); setSaving(false); }}
+      disabled={saving}
+      className="h-6 px-2 rounded border border-cyan-300 bg-cyan-500/40 text-xs font-bold hover:bg-cyan-500/60 flex items-center disabled:opacity-50"
+    >
+      {saving ? "Saving..." : "Save Audit"}
+    </button>
+  );
+}
+
+function ClearElectionButton({ onReset }: { onReset: () => void }) {
   const [step, setStep] = useState<0 | 1 | 2>(0);
+  const [downloading, setDownloading] = useState(false);
 
   async function handleConfirm() {
     if (step === 0) {
@@ -42,9 +69,15 @@ function ResetBoardButton({ onReset }: { onReset: () => void }) {
       return;
     }
     if (step === 1) {
+      // Force audit CSV download before proceeding
+      setDownloading(true);
+      const ok = await downloadAuditCSV();
+      setDownloading(false);
+      if (!ok) return;
       setStep(2);
       return;
     }
+    // Final confirm — reset the board
     const res = await fetch("/api/admin/reset-board", { method: "POST" });
     if (res.ok) {
       onReset();
@@ -60,9 +93,9 @@ function ResetBoardButton({ onReset }: { onReset: () => void }) {
     return (
       <button
         onClick={handleConfirm}
-        className="h-7 px-2 rounded-md border border-red-300/50 bg-red-500/30 text-sm font-bold hover:bg-red-500/50 flex items-center"
+        className="h-6 px-2 rounded border border-red-400 bg-red-600 text-xs font-bold hover:bg-red-700 flex items-center"
       >
-        Reset Bubbles
+        Clear Election
       </button>
     );
   }
@@ -72,26 +105,120 @@ function ResetBoardButton({ onReset }: { onReset: () => void }) {
       <div className="bg-white text-black rounded-lg shadow-2xl p-6 max-w-md" onClick={(e) => e.stopPropagation()}>
         {step === 1 ? (
           <>
-            <h2 className="text-lg font-black text-red-600 mb-2">Are you sure?</h2>
-            <p className="text-sm mb-4">This will reset ALL bubbles for ALL locations back to incomplete. This action cannot be undone.</p>
+            <h2 className="text-lg font-black text-red-600 mb-2">Clear Election Data</h2>
+            <p className="text-sm mb-2">This will reset ALL statuses for ALL locations back to incomplete.</p>
+            <p className="text-sm mb-4 font-medium">An <span className="font-black">audit log CSV</span> will be downloaded automatically before clearing.</p>
             <div className="flex gap-3 justify-end">
               <button onClick={handleCancel} className="px-4 py-2 rounded-md border text-sm font-bold hover:bg-gray-100">Cancel</button>
-              <button onClick={handleConfirm} className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-bold hover:bg-red-700">Yes, Reset All</button>
+              <button onClick={handleConfirm} disabled={downloading} className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-bold hover:bg-red-700 disabled:opacity-50">
+                {downloading ? "Downloading Audit..." : "Download Audit & Continue"}
+              </button>
             </div>
           </>
         ) : (
           <>
             <h2 className="text-lg font-black text-red-600 mb-2">FINAL WARNING</h2>
-            <p className="text-sm mb-2">You are about to reset the <span className="font-black">ENTIRE</span> board. Every single bubble will be set to incomplete.</p>
-            <p className="text-sm font-bold text-red-600 mb-4">This is irreversible. Are you absolutely sure?</p>
+            <p className="text-sm mb-2">Audit log has been saved. You are about to clear the <span className="font-black">ENTIRE</span> election board.</p>
+            <p className="text-sm font-bold text-red-600 mb-4">All statuses will be reset. Are you absolutely sure?</p>
             <div className="flex gap-3 justify-end">
               <button onClick={handleCancel} className="px-4 py-2 rounded-md border text-sm font-bold hover:bg-gray-100">No, Go Back</button>
-              <button onClick={handleConfirm} className="px-4 py-2 rounded-md bg-red-700 text-white text-sm font-black hover:bg-red-800">RESET EVERYTHING</button>
+              <button onClick={handleConfirm} className="px-4 py-2 rounded-md bg-red-700 text-white text-sm font-black hover:bg-red-800">CLEAR ELECTION</button>
             </div>
           </>
         )}
       </div>
     </div>
+  );
+}
+
+function AuditCacheBar({ children }: { children?: React.ReactNode }) {
+  const [count, setCount] = useState<number | null>(null);
+  const [oldest, setOldest] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/audit/count")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d) { setCount(d.count); setOldest(d.oldest); } });
+  }, []);
+
+  if (count === null) return null;
+
+  const sinceText = oldest ? `since ${new Date(oldest).toLocaleDateString()}` : "";
+
+  return (
+    <div className="flex items-center justify-between px-4 py-1 bg-gray-900 text-gray-300 text-xs font-medium">
+      <a href="/admin/audit" className="flex items-center gap-2 hover:text-white cursor-pointer">
+        <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+        <span>Audit Log: <span className="font-bold text-white">{count.toLocaleString()}</span> entries {sinceText}</span>
+        <span className="ml-1 underline">View</span>
+      </a>
+      {children && <div className="flex items-center gap-2">{children}</div>}
+    </div>
+  );
+}
+
+function RestoreButton({ onRestored }: { onRestored: () => void }) {
+  const [restoring, setRestoring] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleSaveCSV() {
+    const res = await fetch("/api/admin/snapshots");
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || "green-bubbles-backup.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleRestoreCSV(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!confirm(`Restore from "${file.name}"? This will overwrite the entire board.`)) {
+      e.target.value = "";
+      return;
+    }
+    setRestoring(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/admin/snapshots", { method: "POST", body: formData });
+    if (res.ok) {
+      onRestored();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "Restore failed");
+    }
+    setRestoring(false);
+    e.target.value = "";
+  }
+
+  return (
+    <>
+      <button
+        onClick={handleSaveCSV}
+        className="h-6 px-2 rounded border border-blue-300 bg-blue-500/40 text-xs font-bold hover:bg-blue-500/60 flex items-center"
+        title="Download board as CSV backup"
+      >
+        Save CSV
+      </button>
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={restoring}
+        className="h-6 px-2 rounded border border-amber-300 bg-amber-500/40 text-xs font-bold hover:bg-amber-500/60 flex items-center disabled:opacity-50"
+        title="Restore board from CSV backup"
+      >
+        {restoring ? "Restoring..." : "Restore CSV"}
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv"
+        className="hidden"
+        onChange={handleRestoreCSV}
+      />
+    </>
   );
 }
 
@@ -158,6 +285,15 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
   const [zoneFilter, setZoneFilter] = useState<number | "all">("all");
   const [sortCol, setSortCol] = useState<string>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [editMode, setEditMode] = useState(false);
+  // Snapshot of locations when edit mode was entered — for undo
+  const [snapshot, setSnapshot] = useState<Location[]>([]);
+  // History of local states for step-by-step undo
+  const [undoHistory, setUndoHistory] = useState<Location[][]>([]);
+  // Track new location IDs created during this edit session (for cleanup on undo-all)
+  const [newLocationIds, setNewLocationIds] = useState<Set<number>>(new Set());
+  // Track deleted location IDs during this edit session
+  const [deletedLocationIds, setDeletedLocationIds] = useState<Set<number>>(new Set());
 
   const fetchData = useCallback(async () => {
     const res = await fetch("/api/dashboard");
@@ -304,8 +440,278 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
     );
   }
 
+  // --- Local-only edit handlers (no API calls until Apply) ---
+
+  function pushUndo() {
+    setUndoHistory((prev) => [...prev, structuredClone(locations)]);
+  }
+
+  function handleEditField(locationId: number, field: string, value: string, index?: number) {
+    pushUndo();
+    setLocations((prev) =>
+      prev.map((loc) => {
+        if (loc.id !== locationId) return loc;
+        const updated = { ...loc };
+        if (field === "name") updated.name = value;
+        else if (field === "address") updated.address = value;
+        else if (field === "city") updated.city = value;
+        else if (field === "pollId") updated.pollId = value || null;
+        else if (field === "contactName") {
+          if (!value) {
+            // Delete the contact
+            updated.contacts = [];
+          } else {
+            updated.contacts = updated.contacts.map((c, ci) =>
+              ci === 0 ? { ...c, name: value } : c
+            );
+          }
+        } else if (field === "contactPhone") {
+          updated.contacts = updated.contacts.map((c, ci) => {
+            if (ci !== 0) return c;
+            const phones = [...(c.phones as { label: string; number: string }[])];
+            const idx = index ?? 0;
+            if (!value) {
+              phones.splice(idx, 1);
+            } else if (phones[idx]) {
+              phones[idx] = { ...phones[idx], number: value };
+            }
+            return { ...c, phones };
+          });
+        } else if (field === "contactPhoneLabel") {
+          updated.contacts = updated.contacts.map((c, ci) => {
+            if (ci !== 0) return c;
+            const phones = [...(c.phones as { label: string; number: string }[])];
+            const idx = index ?? 0;
+            if (phones[idx]) {
+              phones[idx] = { ...phones[idx], label: value || "Phone" };
+            }
+            return { ...c, phones };
+          });
+        } else if (field === "precinctLabel") {
+          const idx = index ?? 0;
+          if (!value) {
+            updated.precincts = updated.precincts.filter((_, i) => i !== idx);
+          } else {
+            updated.precincts = updated.precincts.map((p, i) =>
+              i === idx ? { ...p, label: value } : p
+            );
+          }
+        }
+        return updated;
+      })
+    );
+  }
+
+  function handleAddItem(locationId: number, field: string) {
+    pushUndo();
+    setLocations((prev) =>
+      prev.map((loc) => {
+        if (loc.id !== locationId) return loc;
+        const updated = { ...loc };
+        if (field === "contactPhone") {
+          updated.contacts = updated.contacts.map((c, ci) => {
+            if (ci !== 0) return c;
+            const phones = [...(c.phones as { label: string; number: string }[])];
+            phones.push({ label: "Phone", number: "" });
+            return { ...c, phones };
+          });
+        } else if (field === "precinct") {
+          updated.precincts = [...updated.precincts, { label: "NEW" } as Location["precincts"][0]];
+        } else if (field === "contact") {
+          updated.contacts = [
+            ...updated.contacts,
+            { id: -Date.now(), name: "New Contact", title: "", phones: [{ label: "Phone", number: "" }] } as Location["contacts"][0],
+          ];
+        }
+        return updated;
+      })
+    );
+  }
+
+  function handleAddRow() {
+    pushUndo();
+    const tempId = -Date.now();
+    const defaultZone = locations[0]?.zone || { id: 1, number: 1, name: "Zone 1" };
+    const newLoc: Location = {
+      id: tempId,
+      pollId: null,
+      name: "New Location",
+      address: "",
+      city: "",
+      zoneId: defaultZone.id,
+      zone: defaultZone,
+      statuses: milestones.map((m) => ({
+        id: -Math.random(),
+        locationId: tempId,
+        milestoneId: m.id,
+        value: false,
+        updatedBy: null,
+        updatedAt: new Date().toISOString(),
+        updatedByUser: null,
+      })) as Location["statuses"],
+      precincts: [{ label: "NEW" } as Location["precincts"][0]],
+      contacts: [{ id: -Date.now(), name: "Contact", title: "", phones: [{ label: "Phone", number: "" }] } as Location["contacts"][0]],
+    };
+    setLocations((prev) => [...prev, newLoc]);
+    setNewLocationIds((prev) => new Set(prev).add(tempId));
+  }
+
+  function handleDeleteRow(locationId: number) {
+    pushUndo();
+    setLocations((prev) => prev.filter((loc) => loc.id !== locationId));
+    if (!newLocationIds.has(locationId)) {
+      setDeletedLocationIds((prev) => new Set(prev).add(locationId));
+    }
+  }
+
+  function handleUndo() {
+    if (undoHistory.length === 0) return;
+    const previous = undoHistory[undoHistory.length - 1];
+    setUndoHistory((prev) => prev.slice(0, -1));
+    setLocations(previous);
+  }
+
+  async function handleApply() {
+    // Send all changes to the API
+    const snapshotMap = new Map(snapshot.map((l) => [l.id, l]));
+    const promises: Promise<unknown>[] = [];
+
+    // 1. Delete removed rows
+    for (const id of deletedLocationIds) {
+      promises.push(fetch(`/api/locations/${id}`, { method: "DELETE" }));
+    }
+
+    // 2. Create new rows
+    for (const loc of locations) {
+      if (loc.id < 0) {
+        promises.push(
+          fetch("/api/locations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          }).then(async (res) => {
+            if (!res.ok) return;
+            const { location: created } = await res.json();
+            // Now patch all the fields that differ from defaults
+            const patches: Promise<unknown>[] = [];
+            if (loc.name !== "New Location") {
+              patches.push(fetch(`/api/locations/${created.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "name", value: loc.name }),
+              }));
+            }
+            if (loc.address) {
+              patches.push(fetch(`/api/locations/${created.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "address", value: loc.address }),
+              }));
+            }
+            if (loc.city) {
+              patches.push(fetch(`/api/locations/${created.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "city", value: loc.city }),
+              }));
+            }
+            if (loc.pollId) {
+              patches.push(fetch(`/api/locations/${created.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ field: "pollId", value: loc.pollId }),
+              }));
+            }
+            await Promise.all(patches);
+          })
+        );
+      }
+    }
+
+    // 3. Patch modified existing rows
+    for (const loc of locations) {
+      if (loc.id < 0) continue;
+      const orig = snapshotMap.get(loc.id);
+      if (!orig) continue;
+
+      const fields: { field: string; value: string; index?: number }[] = [];
+      if (loc.name !== orig.name) fields.push({ field: "name", value: loc.name });
+      if (loc.address !== orig.address) fields.push({ field: "address", value: loc.address });
+      if (loc.city !== orig.city) fields.push({ field: "city", value: loc.city });
+      if ((loc.pollId || "") !== (orig.pollId || "")) fields.push({ field: "pollId", value: loc.pollId || "" });
+
+      // Contact changes
+      const origContact = orig.contacts[0];
+      const curContact = loc.contacts[0];
+      if (!curContact && origContact) {
+        fields.push({ field: "contactName", value: "" });
+      } else if (curContact && origContact) {
+        if (curContact.name !== origContact.name) fields.push({ field: "contactName", value: curContact.name });
+        const curPhones = curContact.phones as { label: string; number: string }[];
+        const origPhones = origContact.phones as { label: string; number: string }[];
+        // Handle phone changes
+        for (let i = 0; i < Math.max(curPhones.length, origPhones.length); i++) {
+          if (i >= curPhones.length) {
+            // Phone was deleted
+            fields.push({ field: "contactPhone", value: "", index: curPhones.length });
+          } else if (i >= origPhones.length) {
+            // Phone was added — first add, then set values
+            fields.push({ field: "contactPhone", value: curPhones[i].number, index: i });
+          } else {
+            if (curPhones[i].number !== origPhones[i].number)
+              fields.push({ field: "contactPhone", value: curPhones[i].number, index: i });
+            if (curPhones[i].label !== origPhones[i].label)
+              fields.push({ field: "contactPhoneLabel", value: curPhones[i].label, index: i });
+          }
+        }
+      } else if (curContact && !origContact) {
+        fields.push({ field: "contactName", value: curContact.name });
+      }
+
+      // Precinct changes
+      for (let i = 0; i < Math.max(loc.precincts.length, orig.precincts.length); i++) {
+        if (i >= loc.precincts.length) {
+          fields.push({ field: "precinctLabel", value: "", index: loc.precincts.length });
+        } else if (i >= orig.precincts.length) {
+          fields.push({ field: "precinctLabel", value: loc.precincts[i].label, index: i });
+        } else if (loc.precincts[i].label !== orig.precincts[i].label) {
+          fields.push({ field: "precinctLabel", value: loc.precincts[i].label, index: i });
+        }
+      }
+
+      for (const f of fields) {
+        promises.push(
+          fetch(`/api/locations/${loc.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(f),
+          })
+        );
+      }
+    }
+
+    await Promise.all(promises);
+    // Refresh from server to get canonical state
+    await fetchData();
+    setEditMode(false);
+    setUndoHistory([]);
+    setSnapshot([]);
+    setNewLocationIds(new Set());
+    setDeletedLocationIds(new Set());
+  }
+
+  function handleDiscardEdits() {
+    setLocations(snapshot);
+    setEditMode(false);
+    setUndoHistory([]);
+    setSnapshot([]);
+    setNewLocationIds(new Set());
+    setDeletedLocationIds(new Set());
+  }
+
   const canEdit =
     session.role !== "VIEWER";
+  const canEditDashboard =
+    session.role === "ADMIN" || session.role === "SUPERVISOR";
 
   const showZoneFilter = session.role !== "ZONE_CAPTAIN";
 
@@ -319,6 +725,65 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
 
   return (
     <main className="pt-0 pb-0 space-y-0 h-screen overflow-hidden">
+      {/* Admin toolbar — top of page, outside the green header */}
+      {session.role === "ADMIN" && (
+        <AuditCacheBar>
+          {canEditDashboard && !editMode && (
+            <button
+              onClick={() => {
+                setSnapshot(structuredClone(locations));
+                setUndoHistory([]);
+                setNewLocationIds(new Set());
+                setDeletedLocationIds(new Set());
+                setEditMode(true);
+              }}
+              className="h-6 px-2 rounded border border-yellow-300 bg-yellow-500/40 hover:bg-yellow-500/60 text-xs font-bold flex items-center"
+            >
+              Edit Dashboard
+            </button>
+          )}
+          {editMode && (
+            <>
+              <button
+                onClick={handleUndo}
+                disabled={undoHistory.length === 0}
+                className="h-6 px-2 rounded border border-orange-300 bg-orange-500/40 hover:bg-orange-500/60 text-xs font-bold flex items-center disabled:opacity-40 disabled:cursor-not-allowed"
+                title={undoHistory.length > 0 ? `Undo (${undoHistory.length})` : "Nothing to undo"}
+              >
+                ↩ Undo{undoHistory.length > 0 ? ` (${undoHistory.length})` : ""}
+              </button>
+              <button
+                onClick={handleDiscardEdits}
+                className="h-6 px-2 rounded border border-red-300 bg-red-500/40 hover:bg-red-500/60 text-xs font-bold flex items-center"
+              >
+                ✕ Discard
+              </button>
+              <button
+                onClick={handleApply}
+                className="h-6 px-2 rounded border border-green-300 bg-green-500/40 hover:bg-green-500/60 text-xs font-bold flex items-center"
+              >
+                ✓ Apply
+              </button>
+            </>
+          )}
+          <a
+            href="/admin/pins"
+            className="h-6 px-2 rounded border border-purple-300 bg-purple-500/40 text-xs font-bold hover:bg-purple-500/60 flex items-center"
+          >
+            Account Management
+          </a>
+          <SaveAuditButton />
+          <RestoreButton onRestored={fetchData} />
+          <ClearElectionButton onReset={() => {
+            setLocations((prev) =>
+              prev.map((loc) => ({
+                ...loc,
+                statuses: loc.statuses.map((s) => ({ ...s, value: false })),
+              }))
+            );
+          }} />
+        </AuditCacheBar>
+      )}
       <div className="relative bg-gradient-to-b from-emerald-400 via-emerald-500 to-emerald-700 text-white shadow-[0_4px_12px_rgba(0,0,0,0.25),inset_0_3px_1px_rgba(255,255,255,0.35),inset_0_-3px_1px_rgba(0,0,0,0.25)] [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
       <div className="absolute inset-0 flex flex-col items-center pointer-events-none z-10">
         <span className="text-6xl uppercase tracking-normal mt-2 pointer-events-auto" style={{ fontFamily: "'Cinzel', serif", fontWeight: 400 }}>Green Bubbles</span>
@@ -329,61 +794,41 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
       {/* Header */}
       <div className="relative flex items-center justify-between px-4 py-2">
         <img src="/boe-logo.png" alt="Cuyahoga County Board of Elections" className="h-12 brightness-0 invert drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-bold">{session.displayName}</span>
-          <span className="text-sm text-yellow-200 font-bold">
-            {session.role.replace(/_/g, " ")}
-            {session.zoneId ? ` · Zone ${session.zoneId}` : ""}
-          </span>
-          {(session.role === "ADMIN" || session.role === "SUPERVISOR") && (
-            <a
-              href="/admin/pins"
-              className="h-7 px-2 rounded-md border border-white/50 bg-white/20 text-sm font-bold hover:bg-white/30 flex items-center"
-            >
-              Manage PINs
-            </a>
-          )}
-          {session.role === "ADMIN" && (
-            <ResetBoardButton onReset={() => {
-              setLocations((prev) =>
-                prev.map((loc) => ({
-                  ...loc,
-                  statuses: loc.statuses.map((s) => ({ ...s, value: false })),
-                }))
-              );
-            }} />
-          )}
+        <div className="flex flex-col items-end gap-1">
+          <div className="text-sm font-bold">{session.displayName} <span className="text-yellow-200">{session.role.replace(/_/g, " ")}{session.zoneId ? ` · Zone ${session.zoneId}` : ""}</span></div>
           <LogoutButton />
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3 px-4 py-2">
-        <input
-          type="text"
-          placeholder="Search locations..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="h-8 w-56 rounded-md border border-white/50 bg-white/30 px-3 text-sm font-bold text-white placeholder:text-white/70 placeholder:font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
-        />
-        {showZoneFilter && (
-          <select
-            value={zoneFilter}
-            onChange={(e) =>
-              setZoneFilter(
-                e.target.value === "all" ? "all" : Number(e.target.value)
-              )
-            }
-            className="h-8 rounded-md border border-white/50 bg-white/30 px-3 text-sm font-bold text-white [&_option]:text-black [&_option]:bg-white"
-          >
-            <option value="all">All Zones</option>
-            {zones.map((z) => (
-              <option key={z.number} value={z.number}>
-                {z.name}
-              </option>
-            ))}
-          </select>
-        )}
+      <div className="flex items-center px-4 py-2">
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            placeholder="Search locations..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 w-56 rounded-md border border-white/50 bg-white/30 px-3 text-sm font-bold text-white placeholder:text-white/70 placeholder:font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+          />
+          {showZoneFilter && (
+            <select
+              value={zoneFilter}
+              onChange={(e) =>
+                setZoneFilter(
+                  e.target.value === "all" ? "all" : Number(e.target.value)
+                )
+              }
+              className="h-8 rounded-md border border-white/50 bg-white/30 px-3 text-sm font-bold text-white [&_option]:text-black [&_option]:bg-white"
+            >
+              <option value="all">All Zones</option>
+              {zones.map((z) => (
+                <option key={z.number} value={z.number}>
+                  {z.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
       </div>
 
@@ -398,6 +843,11 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
         sortCol={sortCol}
         sortDir={sortDir}
         onSort={handleSort}
+        editMode={editMode}
+        onEditField={handleEditField}
+        onAddItem={handleAddItem}
+        onAddRow={handleAddRow}
+        onDeleteRow={handleDeleteRow}
       />
       {/* Unselect reason modal */}
       {reasonModal && (
