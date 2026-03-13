@@ -205,31 +205,34 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
       return ids.length > 0 && ids.every((id) => loc.statuses.some((s) => s.milestoneId === id && s.value));
     }
 
+    const effectiveCol = search.trim() ? "name" : sortCol;
+    const effectiveDir = search.trim() ? "asc" as const : sortDir;
+
     result = [...result].sort((a, b) => {
       let cmp = 0;
-      if (sortCol === "pollId") cmp = (a.pollId || "").localeCompare(b.pollId || "");
-      else if (sortCol === "name") cmp = a.name.localeCompare(b.name);
-      else if (sortCol === "city") {
+      if (effectiveCol === "pollId") cmp = (a.pollId || "").localeCompare(b.pollId || "");
+      else if (effectiveCol === "name") cmp = a.name.localeCompare(b.name);
+      else if (effectiveCol === "city") {
         cmp = a.city.localeCompare(b.city);
         if (cmp === 0) cmp = (a.precincts[0]?.label || "").localeCompare(b.precincts[0]?.label || "");
       }
-      else if (sortCol === "zone") cmp = a.zone.number - b.zone.number;
-      else if (sortCol === "contact") {
+      else if (effectiveCol === "zone") cmp = a.zone.number - b.zone.number;
+      else if (effectiveCol === "contact") {
         const aName = a.contacts[0]?.name || "";
         const bName = b.contacts[0]?.name || "";
         cmp = aName.localeCompare(bName);
       }
-      else if (sortCol === "monDone" || sortCol === "tueDone") {
-        const ids = sortCol === "monDone" ? monMilestoneIds : tueMilestoneIds;
+      else if (effectiveCol === "monDone" || effectiveCol === "tueDone") {
+        const ids = effectiveCol === "monDone" ? monMilestoneIds : tueMilestoneIds;
         const aDone = isDayDone(a, ids);
         const bDone = isDayDone(b, ids);
         if (aDone !== bDone) {
           const groupCmp = aDone ? -1 : 1;
-          return sortDir === "asc" ? groupCmp : -groupCmp;
+          return effectiveDir === "asc" ? groupCmp : -groupCmp;
         }
         return a.name.localeCompare(b.name);
       }
-      return sortDir === "asc" ? cmp : -cmp;
+      return effectiveDir === "asc" ? cmp : -cmp;
     });
 
     return result;
