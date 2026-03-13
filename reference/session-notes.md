@@ -136,4 +136,79 @@
 
 ---
 
-*Last updated: 2026-03-05*
+## Session 3 — 2026-03-10 to 2026-03-12
+
+### What We Did
+1. **Phase 1 completed** — PostgreSQL 16 installed natively (no Docker, machine lacks VT-x), database seeded, health endpoint verified
+2. **Phase 2 completed** — PIN-based auth with JWT sessions:
+   - Login/logout/me API endpoints
+   - Edge middleware protecting all routes
+   - Three PIN modes: Individual (name-matched), Open (choose your name), Shared (one PIN per role)
+   - PIN management UI with role selector, mode picker, print sheet
+   - Impersonation guard (can't use a named account's name with a shared PIN)
+   - Admin renamed to "GB Admin"
+3. **Phase 3 in progress** — Dashboard bubble board:
+   - GET /api/dashboard — returns locations + statuses + milestones (zone-scoped)
+   - POST /api/locations/toggle-status — toggle bubble with audit logging
+   - Unselect requires a reason (modal popup, saved to audit log)
+   - Search, zone filter, sortable columns, progress summary row
+   - Tooltips show location name + who updated + when
+   - Address displayed under location name (single column)
+   - Abbreviated milestone headers
+4. **Schema changes:**
+   - Contact model: merged firstName/lastName → single `name` field
+   - Contact model: replaced rigid `type`+`phone` with `title` + `phones` JSON array (flexible labels)
+   - User model: replaced `shared` boolean with `pinMode` string ("named"/"open"/"shared")
+
+### Data Pipeline — How Election Data Flows
+1. **GIS tech sends first** — locations with coordinates, precinct data
+2. **Program coordinator sends second** — contact info (VLM names + phone numbers) to layer onto existing locations
+3. **Coordinator contact sheet** saved to `reference/coordinator-contact-sheet.xlsx`
+   - 271 rows, columns: POLL CODE, ZONE, AV#, POLL_NAME, POLL_ADDR1, POLL_ADDR3, POLL_ZIP, VLM, VLM CELL PHONE, BOE CELL PHONE, LANDLINE, IS PHONE NUMBER
+   - Locations are already set up before contacts are imported
+   - Contact import matches by POLL CODE to link contacts to locations
+
+### Decisions Made
+- **No Docker for local dev** — native PostgreSQL 16 (machine lacks VT-x for Hyper-V)
+- **Shared PINs** — one PIN for a whole role, everyone types their own name
+- **Open PINs** — each person gets own PIN, types whatever name they want
+- **Unselect requires reason** — prevents accidental/unexplained status reversals
+- **Flexible contact phones** — JSON array with freeform labels instead of rigid columns
+- **Single name field** — handles "First Last", "First Middle Last", "First Last-Last" formats
+
+### IVR Phone System (HIGH PRIORITY — before map)
+- **Problem:** 271 locations calling in for basic status updates floods the phone lines. Calls should be reserved for actual issues.
+- **Solution:** Twilio IVR — VLMs call a number, press a digit to update their status automatically
+- **Flow:**
+  1. VLM calls Twilio number from their assigned flip phone
+  2. Caller ID matched to VLM Cell Phone in contacts → identifies location
+  3. IVR menu: "Press 1 for Mon Delivery, 2 for Mon Arrival, 3 Mon Close, 4 Building Open, 5 Tue Arrival, 6 Open Ready, 7 Close Poll"
+  4. System toggles milestone, confirms with voice: "Monday Delivery marked complete for [location name]"
+  5. Dashboard updates in real-time
+- **Tech:** Twilio (~$1/month number + ~$0.01/min = ~$20 per election day)
+- **Caller ID matching:** VLM cell phones already stored in contacts table from coordinator sheet
+- **Edge cases:** Unknown caller ID → prompt for poll ID manually, unrecognized → transfer to operator
+
+### Map View Plan (Phase 8 — lower priority)
+- Leaflet map with location pins, red (not done) → green (done) color scheme
+- **Layer views** — one per milestone:
+  - Mon Delivery, Mon Arrival, Mon Close, Building Open, Tue Arrival, Open Ready, Close Poll
+- **Aggregate layers:**
+  - Overall Monday (all Mon milestones combined)
+  - Overall Tuesday (all Tue milestones combined)
+  - Combined Mon + Tue overall
+- Pins start red, turn green when status is marked done
+- Easy to spot what's still outstanding at a glance
+
+### Test PINs for Dev
+| User | PIN | Role |
+|------|-----|------|
+| GB Admin | 1234 | ADMIN |
+| Supervisor | 5678 | SUPERVISOR |
+| Zone 1 Captain | 1111 | ZONE_CAPTAIN |
+| Phone Op | 2222 | PHONE_OPERATOR |
+| Viewer | 3333 | VIEWER |
+
+---
+
+*Last updated: 2026-03-12*

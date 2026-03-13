@@ -32,6 +32,7 @@ model Zone {
 
 model Location {
   id        Int              @id @default(autoincrement())
+  pollId    String?          @unique @map("poll_id") // e.g. "8133" — from GIS/coordinator data
   name      String
   address   String
   city      String           @default("")
@@ -77,10 +78,9 @@ model Contact {
   id         Int      @id @default(autoincrement())
   locationId Int      @map("location_id")
   location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  firstName  String   @map("first_name")
-  lastName   String   @map("last_name")
-  type       String // e.g. "Presiding Judge", "Building Contact"
-  phone      String
+  name       String
+  title      String   @default("") // e.g. "Presiding Judge", "Building Contact"
+  phones     Json     @default("[]") // [{ label: "VLM Cell", number: "216-555-0101" }, ...]
 
   @@map("contacts")
 }
