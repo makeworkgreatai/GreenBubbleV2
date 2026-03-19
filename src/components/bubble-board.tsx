@@ -22,6 +22,7 @@ interface Status {
 interface Location {
   id: number;
   pollId: string | null;
+  smsPhone: string | null;
   name: string;
   address: string;
   city: string;
@@ -47,6 +48,7 @@ interface Props {
   onAddItem: (locationId: number, field: string) => void;
   onAddRow: () => void;
   onDeleteRow: (locationId: number) => void;
+  nightMode?: boolean;
 }
 
 function formatPhone(raw: string): string {
@@ -264,6 +266,7 @@ export function BubbleBoard({
   onAddItem,
   onAddRow,
   onDeleteRow,
+  nightMode,
 }: Props) {
   const [showPoll, setShowPoll] = useState(true);
   const [showLocation, setShowLocation] = useState(true);
@@ -292,7 +295,7 @@ export function BubbleBoard({
   });
 
   return (
-    <div>
+    <div className={nightMode ? "night-mode" : ""}>
       <div className={`overflow-auto max-h-[calc(100dvh-90px)] border-t-4 ${editMode ? "border-yellow-400" : "border-gray-400"}`}>
       <table className="w-full border-collapse [&_th]:border-r [&_th]:border-black/50 [&_td]:border-r [&_td]:border-black/50 [&_th:last-child]:border-r-0 [&_td:last-child]:border-r-0 [&_th]:shadow-[inset_0_3px_1px_rgba(255,255,255,0.5),inset_0_-3px_1px_rgba(0,0,0,0.2)]">
         <thead className="sticky -top-px z-10 shadow-[0_3px_6px_rgba(0,0,0,0.2)] will-change-transform [transform:translateZ(0)]">
@@ -621,7 +624,7 @@ function LocationRow({
           )}
         </td>
       ) : <td className="w-6" />}
-      {showCols.contact ? <ContactCell contact={contact} hovered={dataCellHover} editMode={editMode} locationId={location.id} onEditField={onEditField} onAddItem={onAddItem} /> : <td className="w-6" />}
+      {showCols.contact ? <ContactCell contact={contact} hovered={dataCellHover} editMode={editMode} locationId={location.id} onEditField={onEditField} onAddItem={onAddItem} smsPhone={location.smsPhone} /> : <td className="w-6" />}
       {showCols.mon ? (
         milestones.filter((m) => milestoneHeader(m.label).day === "Mon").map((m, idx) => {
           const status = location.statuses.find((s) => s.milestoneId === m.id);
@@ -681,6 +684,7 @@ function ContactCell({
   locationId,
   onEditField,
   onAddItem,
+  smsPhone,
 }: {
   contact: { name: string; phones: { label: string; number: string }[] } | undefined;
   hovered: string;
@@ -688,6 +692,7 @@ function ContactCell({
   locationId: number;
   onEditField: (locationId: number, field: string, value: string, index?: number) => void;
   onAddItem: (locationId: number, field: string) => void;
+  smsPhone?: string | null;
 }) {
   const [showAll, setShowAll] = useState(false);
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);

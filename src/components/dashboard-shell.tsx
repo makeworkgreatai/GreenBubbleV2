@@ -59,6 +59,93 @@ function SaveAuditButton() {
   );
 }
 
+function DeleteLocationsButton({ onDeleted }: { onDeleted: () => void }) {
+  const [step, setStep] = useState<0 | 1 | 2>(0);
+  const [downloading, setDownloading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleConfirm() {
+    if (step === 0) {
+      setStep(1);
+      return;
+    }
+    if (step === 1) {
+      // Force CSV backup download before proceeding
+      setDownloading(true);
+      const res = await fetch("/api/admin/snapshots");
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] || "green-bubbles-backup.csv";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      setDownloading(false);
+      setStep(2);
+      return;
+    }
+    // Final confirm — delete everything
+    setDeleting(true);
+    const res = await fetch("/api/admin/delete-locations", { method: "POST" });
+    if (res.ok) {
+      const data = await res.json();
+      alert(`${data.deleted} locations deleted.`);
+      onDeleted();
+    }
+    setDeleting(false);
+    setStep(0);
+  }
+
+  function handleCancel() {
+    setStep(0);
+  }
+
+  if (step === 0) {
+    return (
+      <button
+        onClick={handleConfirm}
+        className="h-6 px-2 rounded border border-rose-400 bg-rose-500/40 text-xs font-bold hover:bg-rose-500/60 flex items-center"
+      >
+        Delete Locations
+      </button>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={handleCancel}>
+      <div className="bg-white text-black rounded-lg shadow-2xl p-6 max-w-md" onClick={(e) => e.stopPropagation()}>
+        {step === 1 ? (
+          <>
+            <h2 className="text-lg font-black text-red-600 mb-2">Delete All Locations</h2>
+            <p className="text-sm mb-2">This will permanently delete <span className="font-black">ALL</span> locations, contacts, precincts, and statuses.</p>
+            <p className="text-sm mb-4 font-medium">A <span className="font-black">CSV backup</span> will be downloaded automatically before deleting.</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={handleCancel} className="px-4 py-2 rounded-md border text-sm font-bold hover:bg-gray-100">Cancel</button>
+              <button onClick={handleConfirm} disabled={downloading} className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-bold hover:bg-red-700 disabled:opacity-50">
+                {downloading ? "Downloading Backup..." : "Download Backup & Continue"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="text-lg font-black text-red-600 mb-2">FINAL WARNING</h2>
+            <p className="text-sm mb-2">CSV backup has been saved. You are about to delete <span className="font-black">EVERY</span> location from the board.</p>
+            <p className="text-sm font-bold text-red-600 mb-4">This cannot be undone. Are you absolutely sure?</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={handleCancel} className="px-4 py-2 rounded-md border text-sm font-bold hover:bg-gray-100">No, Go Back</button>
+              <button onClick={handleConfirm} disabled={deleting} className="px-4 py-2 rounded-md bg-red-700 text-white text-sm font-black hover:bg-red-800 disabled:opacity-50">
+                {deleting ? "Deleting..." : "DELETE EVERYTHING"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ClearElectionButton({ onReset }: { onReset: () => void }) {
   const [step, setStep] = useState<0 | 1 | 2>(0);
   const [downloading, setDownloading] = useState(false);
@@ -267,6 +354,7 @@ interface Contact {
 interface Location {
   id: number;
   pollId: string | null;
+  smsPhone: string | null;
   name: string;
   address: string;
   city: string;
@@ -286,6 +374,9 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
   const [sortCol, setSortCol] = useState<string>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [editMode, setEditMode] = useState(false);
+  const editModeRef = useRef(false);
+  const [liveConnected, setLiveConnected] = useState(false);
+  const [nightMode, setNightMode] = useState(false);
   // Snapshot of locations when edit mode was entered — for undo
   const [snapshot, setSnapshot] = useState<Location[]>([]);
   // History of local states for step-by-step undo
@@ -306,6 +397,69 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
 
   useEffect(() => {
     fetchData();
+  }, [fetchData]);
+
+  // Keep ref in sync for SSE callback
+  useEffect(() => { editModeRef.current = editMode; }, [editMode]);
+
+  // Real-time updates via Server-Sent Events
+  useEffect(() => {
+    let es: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+
+    function connect() {
+      es = new EventSource("/api/events");
+
+      es.onmessage = (e) => {
+        try {
+          const event = JSON.parse(e.data);
+
+          if (event.type === "connected") {
+            setLiveConnected(true);
+            return;
+          }
+
+          // Don't apply remote updates while in edit mode — would conflict with local edits
+          if (editModeRef.current) return;
+
+          if (event.type === "status_update") {
+            // Granular update — just patch the one status
+            setLocations((prev) =>
+              prev.map((loc) => {
+                if (loc.id !== event.locationId) return loc;
+                return {
+                  ...loc,
+                  statuses: loc.statuses.map((s) =>
+                    s.milestoneId === event.milestoneId
+                      ? { ...s, value: event.value, updatedAt: event.updatedAt, updatedByUser: event.updatedByUser }
+                      : s
+                  ),
+                };
+              })
+            );
+          } else if (event.type === "board_reset" || event.type === "location_change") {
+            // Full refresh for bulk changes
+            fetchData();
+          }
+        } catch {
+          // ignore malformed events
+        }
+      };
+
+      es.onerror = () => {
+        setLiveConnected(false);
+        es?.close();
+        // Reconnect after 3 seconds
+        reconnectTimer = setTimeout(connect, 3000);
+      };
+    }
+
+    connect();
+
+    return () => {
+      es?.close();
+      clearTimeout(reconnectTimer);
+    };
   }, [fetchData]);
 
   // Get unique zones for filter dropdown
@@ -456,6 +610,7 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
         else if (field === "address") updated.address = value;
         else if (field === "city") updated.city = value;
         else if (field === "pollId") updated.pollId = value || null;
+        else if (field === "smsPhone") updated.smsPhone = value || null;
         else if (field === "contactName") {
           if (!value) {
             // Delete the contact
@@ -535,6 +690,7 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
     const newLoc: Location = {
       id: tempId,
       pollId: null,
+      smsPhone: null,
       name: "New Location",
       address: "",
       city: "",
@@ -638,6 +794,7 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
       if (loc.address !== orig.address) fields.push({ field: "address", value: loc.address });
       if (loc.city !== orig.city) fields.push({ field: "city", value: loc.city });
       if ((loc.pollId || "") !== (orig.pollId || "")) fields.push({ field: "pollId", value: loc.pollId || "" });
+      if ((loc.smsPhone || "") !== (orig.smsPhone || "")) fields.push({ field: "smsPhone", value: loc.smsPhone || "" });
 
       // Contact changes
       const origContact = orig.contacts[0];
@@ -724,7 +881,7 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
   }
 
   return (
-    <main className="pt-0 pb-0 space-y-0 h-screen overflow-hidden">
+    <main className={`pt-0 pb-0 space-y-0 h-screen overflow-hidden ${nightMode ? "bg-[#141414]" : ""}`}>
       {/* Admin toolbar — top of page, outside the green header */}
       {session.role === "ADMIN" && (
         <AuditCacheBar>
@@ -772,6 +929,18 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
           >
             Account Management
           </a>
+          <a
+            href="/admin/cells"
+            className="h-6 px-2 rounded border border-pink-300 bg-pink-500/40 text-xs font-bold hover:bg-pink-500/60 flex items-center"
+          >
+            Cell Management
+          </a>
+          <a
+            href="/admin/import"
+            className="h-6 px-2 rounded border border-teal-300 bg-teal-500/40 text-xs font-bold hover:bg-teal-500/60 flex items-center"
+          >
+            Import Data
+          </a>
           <SaveAuditButton />
           <RestoreButton onRestored={fetchData} />
           <ClearElectionButton onReset={() => {
@@ -782,6 +951,7 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
               }))
             );
           }} />
+          <DeleteLocationsButton onDeleted={fetchData} />
         </AuditCacheBar>
       )}
       <div className="relative bg-gradient-to-b from-emerald-400 via-emerald-500 to-emerald-700 text-white shadow-[0_4px_12px_rgba(0,0,0,0.25),inset_0_3px_1px_rgba(255,255,255,0.35),inset_0_-3px_1px_rgba(0,0,0,0.25)] [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
@@ -795,8 +965,20 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
       <div className="relative flex items-center justify-between px-4 py-2">
         <img src="/boe-logo.png" alt="Cuyahoga County Board of Elections" className="h-12 brightness-0 invert drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
         <div className="flex flex-col items-end gap-1">
-          <div className="text-sm font-bold">{session.displayName} <span className="text-yellow-200">{session.role.replace(/_/g, " ")}{session.zoneId ? ` · Zone ${session.zoneId}` : ""}</span></div>
-          <LogoutButton />
+          <div className="text-sm font-bold flex items-center gap-2">
+            {session.displayName} <span className="text-yellow-200">{session.role.replace(/_/g, " ")}{session.zoneId ? ` · Zone ${session.zoneId}` : ""}</span>
+            <span className={`inline-block w-2 h-2 rounded-full ${liveConnected ? "bg-green-300 animate-pulse" : "bg-red-400"}`} title={liveConnected ? "Live — updates in real-time" : "Reconnecting..."} />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setNightMode(!nightMode)}
+              className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-sm"
+              title={nightMode ? "Day mode" : "Night mode"}
+            >
+              {nightMode ? "☀" : "☾"}
+            </button>
+            <LogoutButton />
+          </div>
         </div>
       </div>
 
@@ -848,6 +1030,7 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
         onAddItem={handleAddItem}
         onAddRow={handleAddRow}
         onDeleteRow={handleDeleteRow}
+        nightMode={nightMode}
       />
       {/* Unselect reason modal */}
       {reasonModal && (

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withAuth } from "@/lib/middleware";
 import { canEditZone } from "@/lib/auth";
+import { broadcast } from "@/lib/events";
 
 export const POST = withAuth(async (req, { session }) => {
   const { locationId, milestoneId, reason } = await req.json();
@@ -67,6 +68,16 @@ export const POST = withAuth(async (req, { session }) => {
       userId: session.userId,
       reason: reason?.trim() || null,
     },
+  });
+
+  // Broadcast to all connected clients
+  broadcast({
+    type: "status_update",
+    locationId,
+    milestoneId,
+    value: updated.value,
+    updatedAt: updated.updatedAt.toISOString(),
+    updatedByUser: updated.updatedByUser,
   });
 
   return NextResponse.json({ status: updated });

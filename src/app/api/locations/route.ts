@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRole } from "@/lib/middleware";
+import { broadcast } from "@/lib/events";
 
 export const POST = withRole("ADMIN", async (_req, { session }) => {
   // Get default zone
@@ -47,6 +48,8 @@ export const POST = withRole("ADMIN", async (_req, { session }) => {
       userId: session.userId,
     },
   });
+
+  broadcast({ type: "location_change" });
 
   return NextResponse.json({ location });
 });

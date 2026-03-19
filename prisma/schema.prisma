@@ -42,6 +42,7 @@ model Location {
   zoneId    Int              @map("zone_id")
   zone      Zone             @relation(fields: [zoneId], references: [id])
   version   Int              @default(0) // optimistic locking
+  smsPhone  String?          @map("sms_phone") // assigned phone that can text status updates
   statuses  LocationStatus[]
   contacts  Contact[]
   precincts Precinct[]

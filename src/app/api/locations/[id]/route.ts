@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withAuth, withRole } from "@/lib/middleware";
 import { canEditZone } from "@/lib/auth";
+import { broadcast } from "@/lib/events";
 import type { Role } from "@prisma/client";
 
 const LOCATION_INCLUDE = {
@@ -73,7 +74,7 @@ export const PATCH = withAuth(async (req, { session }) => {
 
   // --- EDIT / DELETE by field ---
   const EDITABLE_FIELDS = [
-    "name", "address", "city", "pollId",
+    "name", "address", "city", "pollId", "smsPhone",
     "contactName", "contactTitle", "contactPhone", "contactPhoneLabel",
     "precinctLabel",
   ];
@@ -156,6 +157,7 @@ export const PATCH = withAuth(async (req, { session }) => {
   }
 
   const updated = await db.location.findUnique({ where: { id }, include: LOCATION_INCLUDE });
+  broadcast({ type: "location_change" });
   return NextResponse.json({ location: updated });
 });
 
@@ -170,6 +172,8 @@ export const DELETE = withRole("ADMIN", async (req, { session }) => {
 
   await db.location.delete({ where: { id } });
   await audit(id, "delete_location", location.name, null, session.userId);
+
+  broadcast({ type: "location_change" });
 
   return NextResponse.json({ success: true });
 });

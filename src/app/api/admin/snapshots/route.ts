@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRole } from "@/lib/middleware";
+import { broadcast } from "@/lib/events";
 
 // GET — download current board as CSV
 export const GET = withRole("ADMIN", async () => {
@@ -229,6 +230,8 @@ export const POST = withRole("ADMIN", async (req, { session }) => {
       userId: session.userId,
     },
   });
+
+  broadcast({ type: "location_change" });
 
   return NextResponse.json({ success: true, count: parsed.length });
 });
