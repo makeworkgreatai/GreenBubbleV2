@@ -23,16 +23,18 @@ interface GeneratedPin {
 }
 
 const ROLES = [
-  { value: "SUPERVISOR", label: "Supervisor" },
-  { value: "ZONE_CAPTAIN", label: "Zone Captain" },
-  { value: "PHONE_OPERATOR", label: "Phone Operator" },
-  { value: "VIEWER", label: "Viewer" },
+  { value: "SUPERVISOR", label: "Supervisors", color: "border-purple-400 bg-purple-50", badge: "bg-purple-100 text-purple-700", modes: ["individual", "open", "shared"] },
+  { value: "ZONE_CAPTAIN", label: "Zone Captains", color: "border-blue-400 bg-blue-50", badge: "bg-blue-100 text-blue-700", modes: ["individual", "open", "shared"] },
+  { value: "PHONE_OPERATOR", label: "Phone Operators", color: "border-amber-400 bg-amber-50", badge: "bg-amber-100 text-amber-700", modes: ["individual", "open", "shared"] },
+  { value: "VIEWER", label: "Viewers", color: "border-gray-400 bg-gray-50", badge: "bg-gray-200 text-gray-700", modes: ["individual", "open", "shared", "open_access"] },
 ];
 
-const ALL_ROLES = [
-  { value: "ADMIN", label: "Admin" },
-  ...ROLES,
-];
+const MODE_INFO: Record<string, { label: string; desc: string }> = {
+  individual: { label: "Individual", desc: "Each person gets a unique PIN with their name" },
+  open: { label: "Open", desc: "Shared PINs, each person types their name on login" },
+  shared: { label: "Shared", desc: "One PIN for the whole group" },
+  open_access: { label: "Open Access", desc: "Skip login — share the /view link and anyone can watch the board (read only)" },
+};
 
 const ZONES = [
   { value: 1, label: "Zone 1" },
@@ -43,36 +45,23 @@ const ZONES = [
   { value: 6, label: "Zone 6" },
 ];
 
-const PIN_MODES = [
-  { value: "named", label: "Individual", desc: "Each person gets their own PIN with their name already set" },
-  { value: "open", label: "Open", desc: "Each person gets their own PIN and types their name on login" },
-  { value: "shared", label: "Shared", desc: "Everyone on this role uses the same PIN" },
-];
-
 export default function AccountManagementPage() {
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "expired" | "deactivated">("all");
-  const [showGenerator, setShowGenerator] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editField, setEditField] = useState("");
   const [editValue, setEditValue] = useState("");
   const [resetPinResult, setResetPinResult] = useState<{ id: number; pin: string } | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [openAccess, setOpenAccess] = useState(false);
+  const loginFileRef = useRef<HTMLInputElement>(null);
 
-  // Generator state
-  const [genRole, setGenRole] = useState("ZONE_CAPTAIN");
+  const [genRole, setGenRole] = useState("");
   const [genCount, setGenCount] = useState(5);
   const [genZoneId, setGenZoneId] = useState(1);
   const [genPinMode, setGenPinMode] = useState("open");
-  const [genExpiry, setGenExpiry] = useState("");
   const [genPins, setGenPins] = useState<GeneratedPin[]>([]);
   const [genLoading, setGenLoading] = useState(false);
-  const [genError, setGenError] = useState("");
   const printRef = useRef<HTMLDivElement>(null);
-  const loginFileRef = useRef<HTMLInputElement>(null);
-  const [importing, setImporting] = useState(false);
 
   async function fetchUsers() {
     const res = await fetch("/api/admin/users");
@@ -83,40 +72,45 @@ export default function AccountManagementPage() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchUsers(); }, []);
-
-  const filtered = users.filter((u) => {
-    if (roleFilter && u.role !== roleFilter) return false;
-    if (statusFilter === "active" && (!u.active || u.isExpired)) return false;
-    if (statusFilter === "expired" && !u.isExpired) return false;
-    if (statusFilter === "deactivated" && u.active) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      if (!u.displayName.toLowerCase().includes(q) && !u.role.toLowerCase().includes(q)) return false;
+  async function fetchOpenAccess() {
+    const res = await fetch("/api/admin/open-access");
+    if (res.ok) {
+      const data = await res.json();
+      setOpenAccess(data.enabled);
     }
-    return true;
-  });
+  }
 
-  const roleCounts = users.reduce((acc, u) => {
-    acc[u.role] = (acc[u.role] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  useEffect(() => { fetchUsers(); fetchOpenAccess(); }, []);
 
-  const activeCount = users.filter((u) => u.active && !u.isExpired).length;
-  const expiredCount = users.filter((u) => u.isExpired).length;
-  const deactivatedCount = users.filter((u) => !u.active).length;
+  function usersForRole(role: string) {
+    return users.filter((u) => u.role === role);
+  }
+
+  function activeCount(role: string) {
+    return usersForRole(role).filter((u) => u.active && !u.isExpired).length;
+  }
+
+  function roleMode(role: string): string {
+    if (role === "VIEWER" && openAccess) return "open_access";
+    const roleUsers = usersForRole(role);
+    if (roleUsers.length === 0) return "none";
+    const modes = new Set(roleUsers.map((u) => u.pinMode));
+    if (modes.has("shared")) return "shared";
+    if (modes.has("open")) return "open";
+    return "individual";
+  }
 
   async function handleToggleActive(user: UserAccount) {
-    const res = await fetch(`/api/admin/users/${user.id}`, {
+    await fetch(`/api/admin/users/${user.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ field: "active", value: String(!user.active) }),
     });
-    if (res.ok) fetchUsers();
+    fetchUsers();
   }
 
   async function handleDelete(user: UserAccount) {
-    if (!confirm(`Delete "${user.displayName}" (${user.role.replace(/_/g, " ")})? This cannot be undone.`)) return;
+    if (!confirm(`Delete "${user.displayName}"? This cannot be undone.`)) return;
     const res = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
     if (res.ok) fetchUsers();
     else {
@@ -138,25 +132,14 @@ export default function AccountManagementPage() {
     }
   }
 
-  async function handleSaveEdit() {
-    if (editingId === null) return;
-    const res = await fetch(`/api/admin/users/${editingId}`, {
+  async function handleSaveEdit(userId: number) {
+    await fetch(`/api/admin/users/${userId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ field: editField, value: editValue }),
+      body: JSON.stringify({ field: "displayName", value: editValue }),
     });
-    if (res.ok) {
-      setEditingId(null);
-      fetchUsers();
-    }
-  }
-
-  function startEdit(user: UserAccount, field: string) {
-    setEditingId(user.id);
-    setEditField(field);
-    if (field === "displayName") setEditValue(user.displayName);
-    else if (field === "role") setEditValue(user.role);
-    else if (field === "zoneId") setEditValue(user.zoneId ? String(user.zoneId) : "");
+    setEditingId(null);
+    fetchUsers();
   }
 
   async function handleExpireAll() {
@@ -169,35 +152,24 @@ export default function AccountManagementPage() {
     }
   }
 
-  async function handleImportLogins(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImporting(true);
-    try {
-      const formData = new FormData();
-      formData.append("files", file);
-      const res = await fetch("/api/admin/import", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || "Import failed");
-      } else {
-        const r = data.results?.[0];
-        if (r) {
-          alert(`Imported: ${r.created} created, ${r.skipped} skipped${r.errors.length ? `, ${r.errors.length} errors` : ""}`);
-        }
-        fetchUsers();
-      }
-    } catch {
-      alert("Import failed");
-    } finally {
-      setImporting(false);
-      e.target.value = "";
-    }
+  async function handleToggleOpenAccess(enabled: boolean) {
+    const res = await fetch("/api/admin/open-access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    });
+    if (res.ok) setOpenAccess(enabled);
+  }
+
+  function openGenerator(role: string) {
+    setGenRole(role);
+    setGenPinMode(roleMode(role) === "shared" ? "shared" : "open");
+    setGenPins([]);
+    setGenCount(5);
   }
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
-    setGenError("");
     setGenLoading(true);
     try {
       const res = await fetch("/api/admin/pins/generate", {
@@ -208,15 +180,14 @@ export default function AccountManagementPage() {
           count: genPinMode === "shared" ? 1 : genCount,
           zoneId: genRole === "ZONE_CAPTAIN" ? genZoneId : undefined,
           pinMode: genPinMode,
-          expiresAt: genExpiry || undefined,
         }),
       });
       const data = await res.json();
-      if (!res.ok) { setGenError(data.error); return; }
+      if (!res.ok) { alert(data.error); return; }
       setGenPins(data.pins);
       fetchUsers();
     } catch {
-      setGenError("Failed to generate PINs");
+      alert("Failed to generate PINs");
     } finally {
       setGenLoading(false);
     }
@@ -227,198 +198,58 @@ export default function AccountManagementPage() {
     if (!content) return;
     const win = window.open("", "_blank");
     if (!win) return;
-    win.document.write(`
-      <html><head><title>PIN Sheet</title>
-      <style>
-        body { font-family: system-ui, sans-serif; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-        th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
-        th { background: #f5f5f5; font-weight: 600; }
-        .header { font-size: 20px; font-weight: bold; margin-bottom: 4px; }
-        .sub { color: #666; font-size: 14px; }
-      </style></head>
-      <body>
-        <div class="header">Green Bubbles — PIN Sheet</div>
-        <div class="sub">Role: ${genRole.replace(/_/g, " ")} | Mode: ${genPinMode} | Generated: ${new Date().toLocaleDateString()}</div>
-        ${content.innerHTML}
-        <script>window.print();window.close();</script>
-      </body></html>
-    `);
+    const roleLabel = ROLES.find((r) => r.value === genRole)?.label || genRole;
+    win.document.write(`<html><head><title>PIN Sheet</title><style>body{font-family:system-ui,sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ccc;padding:8px 12px;text-align:left}th{background:#f5f5f5;font-weight:600}.header{font-size:20px;font-weight:bold;margin-bottom:4px}.sub{color:#666;font-size:14px}</style></head><body><div class="header">Green Bubbles — PIN Sheet</div><div class="sub">${roleLabel} | ${genPinMode} | Generated: ${new Date().toLocaleDateString("en-US", { timeZone: "America/New_York" })}</div>${content.innerHTML}<script>window.print();window.close();</script></body></html>`);
     win.document.close();
   }
 
-  function roleColor(role: string) {
-    const colors: Record<string, string> = {
-      ADMIN: "bg-red-100 text-red-700",
-      SUPERVISOR: "bg-purple-100 text-purple-700",
-      ZONE_CAPTAIN: "bg-blue-100 text-blue-700",
-      PHONE_OPERATOR: "bg-amber-100 text-amber-700",
-      VIEWER: "bg-gray-100 text-gray-700",
-    };
-    return colors[role] || "bg-gray-100 text-gray-700";
+  async function handleImportLogins(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const formData = new FormData();
+      formData.append("files", file);
+      const res = await fetch("/api/admin/import", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Import failed"); }
+      else {
+        const r = data.results?.[0];
+        if (r) alert(`${r.created} created, ${r.skipped} skipped${r.errors.length ? `, ${r.errors.length} errors` : ""}`);
+        fetchUsers();
+      }
+    } catch { alert("Import failed"); }
+    finally { setImporting(false); e.target.value = ""; }
   }
 
-  function statusBadge(user: UserAccount) {
-    if (!user.active) return <span className="px-2 py-0.5 rounded text-xs font-bold bg-gray-200 text-gray-500">Deactivated</span>;
-    if (user.isExpired) return <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-600">Expired</span>;
-    return <span className="px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-700">Active</span>;
+  function statusDot(user: UserAccount) {
+    if (!user.active) return <span className="w-2 h-2 rounded-full bg-gray-400 shrink-0" title="Deactivated" />;
+    if (user.isExpired) return <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" title="Expired" />;
+    return <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" title="Active" />;
   }
+
+  const adminUsers = users.filter((u) => u.role === "ADMIN");
+  const totalActive = users.filter((u) => u.active && !u.isExpired).length;
+
+  if (loading) return <main className="max-w-[1200px] mx-auto p-6"><p className="text-gray-500">Loading...</p></main>;
 
   return (
-    <main className="max-w-[1400px] mx-auto p-6 min-h-screen">
-      {/* Header */}
+    <main className="max-w-[1200px] mx-auto p-6 min-h-screen">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-black">Account Management</h1>
-          <p className="text-sm text-gray-500">
-            {users.length} accounts — {activeCount} active, {expiredCount} expired, {deactivatedCount} deactivated
-          </p>
+          <p className="text-sm text-gray-500">{totalActive} active accounts across {users.length} total</p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => setShowGenerator(!showGenerator)}
-            className="px-4 py-2 rounded-md bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700"
-          >
-            {showGenerator ? "Hide Generator" : "Generate PINs"}
-          </button>
-          <button
-            onClick={() => loginFileRef.current?.click()}
-            disabled={importing}
-            className="px-4 py-2 rounded-md bg-purple-600 text-white text-sm font-bold hover:bg-purple-700 disabled:opacity-50"
-          >
+          <button onClick={() => loginFileRef.current?.click()} disabled={importing} className="px-4 py-2 rounded-md bg-purple-600 text-white text-sm font-bold hover:bg-purple-700 disabled:opacity-50">
             {importing ? "Importing..." : "Import Logins"}
           </button>
           <input ref={loginFileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleImportLogins} />
-          <button
-            onClick={handleExpireAll}
-            className="px-4 py-2 rounded-md border border-red-300 text-red-600 text-sm font-bold hover:bg-red-50"
-          >
-            Expire All PINs
-          </button>
-          <a href="/" className="px-4 py-2 rounded-md border text-sm font-bold hover:bg-gray-100">
-            Back to Dashboard
-          </a>
+          <button onClick={handleExpireAll} className="px-4 py-2 rounded-md border border-red-300 text-red-600 text-sm font-bold hover:bg-red-50">Expire All PINs</button>
+          <a href="/" className="px-4 py-2 rounded-md border text-sm font-bold hover:bg-gray-100">Back to Dashboard</a>
         </div>
       </div>
 
-      {/* Stats bar */}
-      <div className="flex gap-2 mb-4">
-        {ALL_ROLES.map((r) => (
-          <div key={r.value} className={`px-3 py-1.5 rounded-md text-xs font-bold ${roleColor(r.value)}`}>
-            {r.label}: {roleCounts[r.value] || 0}
-          </div>
-        ))}
-      </div>
-
-      {/* PIN Generator Panel */}
-      {showGenerator && (
-        <div className="border rounded-lg p-4 mb-4 bg-gray-50">
-          <h2 className="text-lg font-bold mb-3">Generate New PINs</h2>
-          <form onSubmit={handleGenerate} className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              {PIN_MODES.map((m) => (
-                <label
-                  key={m.value}
-                  className={`flex flex-col gap-1 rounded-md border p-3 cursor-pointer transition-colors ${
-                    genPinMode === m.value ? "border-emerald-500 bg-emerald-50" : "border-gray-200 hover:bg-gray-100"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <input type="radio" name="genPinMode" value={m.value} checked={genPinMode === m.value} onChange={(e) => setGenPinMode(e.target.value)} className="h-3.5 w-3.5" />
-                    <span className="text-sm font-medium">{m.label}</span>
-                  </div>
-                  <p className="text-xs text-gray-500 pl-5.5">{m.desc}</p>
-                </label>
-              ))}
-            </div>
-            <div className="grid grid-cols-4 gap-3">
-              <div>
-                <label className="text-xs font-medium text-gray-600">Role</label>
-                <select value={genRole} onChange={(e) => setGenRole(e.target.value)} className="mt-1 flex h-9 w-full rounded-md border px-3 text-sm">
-                  {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-              </div>
-              {genPinMode !== "shared" && (
-                <div>
-                  <label className="text-xs font-medium text-gray-600">Count</label>
-                  <input type="number" min={1} max={100} value={genCount} onChange={(e) => setGenCount(Number(e.target.value))} className="mt-1 flex h-9 w-full rounded-md border px-3 text-sm" />
-                </div>
-              )}
-              {genRole === "ZONE_CAPTAIN" && (
-                <div>
-                  <label className="text-xs font-medium text-gray-600">Zone</label>
-                  <select value={genZoneId} onChange={(e) => setGenZoneId(Number(e.target.value))} className="mt-1 flex h-9 w-full rounded-md border px-3 text-sm">
-                    {ZONES.map((z) => <option key={z.value} value={z.value}>{z.label}</option>)}
-                  </select>
-                </div>
-              )}
-              <div>
-                <label className="text-xs font-medium text-gray-600">Expiry (optional)</label>
-                <input type="date" value={genExpiry} onChange={(e) => setGenExpiry(e.target.value)} className="mt-1 flex h-9 w-full rounded-md border px-3 text-sm" />
-              </div>
-            </div>
-            {genError && <p className="text-sm text-red-600 bg-red-50 rounded-md px-3 py-2">{genError}</p>}
-            <button type="submit" disabled={genLoading} className="h-9 px-4 rounded-md bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 disabled:opacity-50">
-              {genLoading ? "Generating..." : "Generate"}
-            </button>
-          </form>
-
-          {genPins.length > 0 && (
-            <div className="mt-4 border-t pt-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="font-bold text-sm">Generated {genPins.length} PIN{genPins.length > 1 ? "s" : ""}</h3>
-                <button onClick={handlePrint} className="px-3 py-1 rounded-md border text-xs font-bold hover:bg-gray-100">Print Sheet</button>
-              </div>
-              <div ref={printRef}>
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b bg-white">
-                      <th className="text-left py-2 px-3 font-medium">Name</th>
-                      <th className="text-left py-2 px-3 font-medium">PIN</th>
-                      <th className="text-left py-2 px-3 font-medium">Role</th>
-                      {genRole === "ZONE_CAPTAIN" && <th className="text-left py-2 px-3 font-medium">Zone</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {genPins.map((p, i) => (
-                      <tr key={i} className="border-b">
-                        <td className="py-2 px-3 text-gray-400 italic">(write name here)</td>
-                        <td className="py-2 px-3 font-mono font-bold text-lg">{p.pin}</td>
-                        <td className="py-2 px-3">{genRole.replace(/_/g, " ")}</td>
-                        {genRole === "ZONE_CAPTAIN" && <td className="py-2 px-3">Zone {genZoneId}</td>}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="flex gap-3 mb-4">
-        <input
-          type="text"
-          placeholder="Search by name..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="h-9 w-64 rounded-md border px-3 text-sm"
-        />
-        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="h-9 rounded-md border px-3 text-sm">
-          <option value="">All Roles</option>
-          {ALL_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-        </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} className="h-9 rounded-md border px-3 text-sm">
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="expired">Expired</option>
-          <option value="deactivated">Deactivated</option>
-        </select>
-        <span className="flex items-center text-sm text-gray-500">{filtered.length} shown</span>
-      </div>
-
-      {/* Reset PIN banner */}
       {resetPinResult && (
         <div className="mb-4 px-4 py-3 rounded-md bg-emerald-50 border border-emerald-300 flex items-center justify-between">
           <div>
@@ -430,129 +261,161 @@ export default function AccountManagementPage() {
         </div>
       )}
 
-      {/* Users Table */}
-      <div className="border rounded-lg">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100">
-            <tr className="text-left">
-              <th className="px-3 py-2 font-bold">Name</th>
-              <th className="px-3 py-2 font-bold">Role</th>
-              <th className="px-3 py-2 font-bold">Zone</th>
-              <th className="px-3 py-2 font-bold">Mode</th>
-              <th className="px-3 py-2 font-bold">Status</th>
-              <th className="px-3 py-2 font-bold">Created</th>
-              <th className="px-3 py-2 font-bold text-center">Activity</th>
-              <th className="px-3 py-2 font-bold text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-500">Loading...</td></tr>
-            ) : filtered.length === 0 ? (
-              <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-500">No accounts found</td></tr>
-            ) : (
-              filtered.map((user) => (
-                <tr key={user.id} className={`border-t hover:bg-gray-50 ${!user.active ? "opacity-50" : ""}`}>
-                  {/* Name */}
-                  <td className="px-3 py-2">
-                    {editingId === user.id && editField === "displayName" ? (
+      {adminUsers.length > 0 && (
+        <div className="mb-4 rounded-lg border-2 border-red-300 bg-red-50 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-black text-red-700">Admins</div>
+            <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700">{adminUsers.length}</span>
+          </div>
+          <div className="space-y-1">
+            {adminUsers.map((u) => (
+              <div key={u.id} className="flex items-center gap-2 text-sm">
+                {statusDot(u)}
+                <span className="font-bold">{u.displayName}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-4">
+        {ROLES.map((role) => {
+          const roleUsers = usersForRole(role.value);
+          const mode = roleMode(role.value);
+          const active = activeCount(role.value);
+
+          return (
+            <div key={role.value} className={`rounded-lg border-2 p-4 ${role.color}`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-black">{role.label}</span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${role.badge}`}>{active} active</span>
+                </div>
+                {mode !== "open_access" && (
+                  <button onClick={() => openGenerator(role.value)} className="px-3 py-1.5 rounded-md bg-gray-900 text-white text-xs font-bold hover:bg-gray-800">+ Generate PINs</button>
+                )}
+              </div>
+
+              {/* Mode toggles */}
+              <div className="flex gap-2 mb-3">
+                {role.modes.map((m) => {
+                  const info = MODE_INFO[m];
+                  const isActive = mode === m;
+                  return (
+                    <button
+                      key={m}
+                      onClick={() => { if (m === "open_access") handleToggleOpenAccess(!openAccess); }}
+                      className={`flex-1 rounded-lg border-2 p-2.5 text-center transition-all ${
+                        isActive ? "border-green-500 bg-green-50 shadow-sm" : "border-gray-200 bg-white opacity-40 hover:opacity-60"
+                      } ${m === "open_access" ? "cursor-pointer" : "cursor-default"}`}
+                    >
+                      <div className="text-xs font-black">{info.label}</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5 leading-tight">{info.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {role.value === "VIEWER" && openAccess && (
+                <div className="mb-3 px-3 py-2 rounded-md bg-green-100 border border-green-300 text-sm text-green-800">
+                  Open Access is <span className="font-black">ON</span> — anyone can view the dashboard at <span className="font-mono text-xs bg-white px-1 rounded">/view</span> without logging in.
+                  <button onClick={() => handleToggleOpenAccess(false)} className="ml-2 text-xs font-bold underline hover:text-green-600">Turn off</button>
+                </div>
+              )}
+
+              {role.value === "VIEWER" && (
+                <div className="mb-3 px-3 py-2 rounded-md bg-blue-50 border border-blue-200 text-sm text-blue-800 flex items-center justify-between">
+                  <span>Want to see the dashboard without being able to change anything?</span>
+                  <a href="/view" target="_blank" className="px-3 py-1 rounded-md bg-blue-600 text-white text-xs font-bold hover:bg-blue-700">Preview as Viewer</a>
+                </div>
+              )}
+
+              {genRole === role.value && (
+                <div className="mb-3 p-3 rounded-lg bg-white border">
+                  <form onSubmit={handleGenerate} className="space-y-3">
+                    <div className="flex gap-2">
+                      {["individual", "open", "shared"].map((m) => (
+                        <label key={m} className={`flex-1 rounded-md border p-2 cursor-pointer text-center transition-colors ${genPinMode === m ? "border-green-500 bg-green-50" : "hover:bg-gray-50"}`}>
+                          <input type="radio" name="mode" value={m} checked={genPinMode === m} onChange={() => setGenPinMode(m)} className="sr-only" />
+                          <div className="text-xs font-bold capitalize">{m}</div>
+                          <div className="text-[10px] text-gray-500">{m === "individual" ? "Pre-named" : m === "open" ? "Name on login" : "One PIN for all"}</div>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="flex gap-3 items-end">
+                      {genPinMode !== "shared" && (
+                        <div>
+                          <label className="text-xs font-bold text-gray-600">Count</label>
+                          <input type="number" min={1} max={100} value={genCount} onChange={(e) => setGenCount(Number(e.target.value))} className="mt-1 flex h-9 w-20 rounded-md border px-3 text-sm" />
+                        </div>
+                      )}
+                      {role.value === "ZONE_CAPTAIN" && (
+                        <div>
+                          <label className="text-xs font-bold text-gray-600">Zone</label>
+                          <select value={genZoneId} onChange={(e) => setGenZoneId(Number(e.target.value))} className="mt-1 flex h-9 rounded-md border px-3 text-sm">
+                            {ZONES.map((z) => <option key={z.value} value={z.value}>{z.label}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      <button type="submit" disabled={genLoading} className="h-9 px-4 rounded-md bg-green-600 text-white text-sm font-bold hover:bg-green-700 disabled:opacity-50">{genLoading ? "..." : "Generate"}</button>
+                      <button type="button" onClick={() => setGenRole("")} className="h-9 px-3 rounded-md border text-sm font-bold hover:bg-gray-100">Cancel</button>
+                    </div>
+                  </form>
+                  {genPins.length > 0 && (
+                    <div className="mt-3 border-t pt-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-bold">Generated {genPins.length} PIN{genPins.length > 1 ? "s" : ""}</span>
+                        <button onClick={handlePrint} className="px-3 py-1 rounded-md border text-xs font-bold hover:bg-gray-100">Print</button>
+                      </div>
+                      <div ref={printRef}>
+                        <table className="w-full border-collapse text-sm">
+                          <thead><tr className="border-b bg-gray-50"><th className="text-left py-2 px-3 font-medium">Name</th><th className="text-left py-2 px-3 font-medium">PIN</th></tr></thead>
+                          <tbody>
+                            {genPins.map((p, i) => (
+                              <tr key={i} className="border-b"><td className="py-2 px-3 text-gray-400 italic">(write name here)</td><td className="py-2 px-3 font-mono font-bold text-lg">{p.pin}</td></tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {mode === "open_access" && role.value === "VIEWER" ? (
+                <div className="text-sm text-gray-500 italic">No accounts needed — open access is enabled</div>
+              ) : roleUsers.length === 0 ? (
+                <div className="text-sm text-gray-500 italic">No accounts yet — click Generate PINs to create some</div>
+              ) : (
+                <div className="space-y-1">
+                  {roleUsers.map((user) => (
+                    <div key={user.id} className={`flex items-center justify-between py-1.5 px-2 rounded ${!user.active ? "opacity-50" : ""}`}>
+                      <div className="flex items-center gap-2">
+                        {statusDot(user)}
+                        {editingId === user.id ? (
+                          <div className="flex gap-1">
+                            <input value={editValue} onChange={(e) => setEditValue(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSaveEdit(user.id); if (e.key === "Escape") setEditingId(null); }} autoFocus className="h-6 w-40 rounded border px-2 text-sm" />
+                            <button onClick={() => handleSaveEdit(user.id)} className="text-xs text-green-600 font-bold">Save</button>
+                            <button onClick={() => setEditingId(null)} className="text-xs text-gray-400">Cancel</button>
+                          </div>
+                        ) : (
+                          <span className="text-sm font-medium cursor-pointer hover:underline" onClick={() => { setEditingId(user.id); setEditValue(user.displayName); }} title="Click to rename">{user.displayName}</span>
+                        )}
+                        {user.zone && <span className="text-xs text-gray-500">{user.zone.name}</span>}
+                        <span className="text-xs text-gray-400">{user.statusUpdates} updates</span>
+                      </div>
                       <div className="flex gap-1">
-                        <input
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") handleSaveEdit(); if (e.key === "Escape") setEditingId(null); }}
-                          autoFocus
-                          className="h-7 w-40 rounded border px-2 text-sm"
-                        />
-                        <button onClick={handleSaveEdit} className="text-xs text-emerald-600 font-bold">Save</button>
-                        <button onClick={() => setEditingId(null)} className="text-xs text-gray-400">Cancel</button>
+                        <button onClick={() => handleResetPin(user)} className="px-2 py-0.5 rounded text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100">Reset PIN</button>
+                        <button onClick={() => handleToggleActive(user)} className={`px-2 py-0.5 rounded text-xs font-bold ${user.active ? "bg-amber-50 text-amber-600 hover:bg-amber-100" : "bg-green-50 text-green-600 hover:bg-green-100"}`}>{user.active ? "Deactivate" : "Activate"}</button>
+                        <button onClick={() => handleDelete(user)} className="px-2 py-0.5 rounded text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100">Delete</button>
                       </div>
-                    ) : (
-                      <span
-                        className="font-medium cursor-pointer hover:underline"
-                        onClick={() => startEdit(user, "displayName")}
-                        title="Click to edit"
-                      >
-                        {user.displayName}
-                      </span>
-                    )}
-                  </td>
-                  {/* Role */}
-                  <td className="px-3 py-2">
-                    {editingId === user.id && editField === "role" ? (
-                      <div className="flex gap-1">
-                        <select
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          autoFocus
-                          className="h-7 rounded border px-2 text-xs"
-                        >
-                          {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-                        </select>
-                        <button onClick={handleSaveEdit} className="text-xs text-emerald-600 font-bold">Save</button>
-                        <button onClick={() => setEditingId(null)} className="text-xs text-gray-400">Cancel</button>
-                      </div>
-                    ) : (
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-xs font-bold cursor-pointer ${roleColor(user.role)}`}
-                        onClick={() => user.role !== "ADMIN" ? startEdit(user, "role") : undefined}
-                        title={user.role !== "ADMIN" ? "Click to change role" : ""}
-                      >
-                        {user.role.replace(/_/g, " ")}
-                      </span>
-                    )}
-                  </td>
-                  {/* Zone */}
-                  <td className="px-3 py-2 text-gray-600">
-                    {user.zone ? user.zone.name : "—"}
-                  </td>
-                  {/* Mode */}
-                  <td className="px-3 py-2 text-gray-600 capitalize">{user.pinMode}</td>
-                  {/* Status */}
-                  <td className="px-3 py-2">{statusBadge(user)}</td>
-                  {/* Created */}
-                  <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
-                    {new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                  </td>
-                  {/* Activity */}
-                  <td className="px-3 py-2 text-center">
-                    <span className="text-xs text-gray-500" title={`${user.auditCount} audit entries, ${user.statusUpdates} status updates`}>
-                      {user.statusUpdates} updates
-                    </span>
-                  </td>
-                  {/* Actions */}
-                  <td className="px-3 py-2 text-right">
-                    {user.role !== "ADMIN" && (
-                      <div className="flex gap-1 justify-end">
-                        <button
-                          onClick={() => handleResetPin(user)}
-                          className="px-2 py-1 rounded text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100"
-                          title="Generate a new PIN for this user"
-                        >
-                          Reset PIN
-                        </button>
-                        <button
-                          onClick={() => handleToggleActive(user)}
-                          className={`px-2 py-1 rounded text-xs font-bold ${
-                            user.active ? "bg-amber-50 text-amber-600 hover:bg-amber-100" : "bg-green-50 text-green-600 hover:bg-green-100"
-                          }`}
-                        >
-                          {user.active ? "Deactivate" : "Activate"}
-                        </button>
-                        <button
-                          onClick={() => handleDelete(user)}
-                          className="px-2 py-1 rounded text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </main>
   );

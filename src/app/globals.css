@@ -73,6 +73,63 @@ nextjs-portal {
   display: none !important;
 }
 
+/* Print stylesheet — clean dashboard printout */
+@media print {
+  /* Hide non-essential UI */
+  body { overflow: visible !important; }
+  main { height: auto !important; overflow: visible !important; }
+
+  /* Hide admin bar, activity bar, filters, header buttons, night mode toggle */
+  .bg-gray-900,
+  .bg-gray-800,
+  button,
+  select,
+  input,
+  a[href="/admin/pins"],
+  a[href="/admin/cells"],
+  a[href="/admin/import"],
+  a[href="/admin/audit"],
+  a[href="/changelog"] { display: none !important; }
+
+  /* Keep the green header compact */
+  .from-emerald-400 {
+    padding: 4px 16px !important;
+    background: #059669 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Remove logo bubbles center overlay */
+  .pointer-events-none { display: none !important; }
+
+  /* Show the board fully */
+  .overflow-auto {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Force bubble colors to print */
+  .from-green-300, .bg-green-200 {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .from-white { background: white !important; }
+
+  /* Table layout */
+  table { font-size: 10px !important; }
+  th, td { padding: 2px 4px !important; border: 1px solid #ccc !important; }
+  thead { position: static !important; }
+
+  /* Bubbles — print as simple circles */
+  .rounded-full { width: 20px !important; height: 20px !important; font-size: 9px !important; }
+
+  /* Page setup */
+  @page {
+    size: landscape;
+    margin: 0.25in;
+  }
+}
+
 /* Night mode — only affects table body rows */
 .night-mode tbody {
   & .bg-white { background-color: #1e1e1e; }
@@ -82,6 +139,7 @@ nextjs-portal {
   & td, & td * { color: #ffffff !important; }
   & td button.text-red-600 { color: #dc2626 !important; }
   & td button.text-white { color: #ffffff !important; }
+  & td .bg-gray-200 { background-color: #555 !important; }
   & td .text-gray-500, & td .text-gray-600, & td .text-muted-foreground { color: #d0d0d0 !important; }
   & [class*="border-black"] { border-color: #444; }
 }

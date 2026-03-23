@@ -294,9 +294,54 @@ export function BubbleBoard({
     return { milestoneId: m.id, done, total };
   });
 
+  const [mobileSearch, setMobileSearch] = useState("");
+
+  const mobileFiltered = mobileSearch.trim()
+    ? locations.filter((loc) => {
+        const q = mobileSearch.toLowerCase();
+        return loc.name.toLowerCase().includes(q) || loc.address.toLowerCase().includes(q) || loc.city.toLowerCase().includes(q) || (loc.pollId || "").includes(q);
+      })
+    : locations;
+
   return (
     <div className={nightMode ? "night-mode" : ""}>
-      <div className={`overflow-auto max-h-[calc(100dvh-90px)] border-t-4 ${editMode ? "border-yellow-400" : "border-gray-400"}`}>
+      {/* Mobile card view */}
+      <div className="md:hidden flex flex-col h-[calc(100dvh-90px)]">
+        <div className="px-3 py-2 border-b bg-gray-50">
+          <input
+            type="text"
+            placeholder="Search locations..."
+            value={mobileSearch}
+            onChange={(e) => setMobileSearch(e.target.value)}
+            className="w-full h-10 rounded-lg border-2 border-gray-200 bg-white px-3 text-sm font-medium focus:border-emerald-500 focus-visible:outline-none"
+          />
+          <div className="text-xs text-gray-500 mt-1">{mobileFiltered.length} location{mobileFiltered.length !== 1 ? "s" : ""}</div>
+        </div>
+        <div className="flex-1 overflow-auto px-3 py-2 space-y-2">
+          {mobileFiltered.map((loc) => {
+            const allDone = milestones.every((m) => loc.statuses.some((s) => s.milestoneId === m.id && s.value));
+            const contact = loc.contacts[0];
+            return (
+              <MobileLocationCard
+                key={loc.id}
+                location={loc}
+                milestones={milestones}
+                allDone={allDone}
+                contact={contact}
+                canEdit={canEdit && !editMode}
+                userRole={userRole}
+                userZoneId={userZoneId}
+                onToggle={onToggle}
+              />
+            );
+          })}
+          {mobileFiltered.length === 0 && (
+            <div className="text-center text-gray-500 text-sm py-8">No locations found</div>
+          )}
+        </div>
+      </div>
+      {/* Desktop table view */}
+      <div className={`hidden md:block overflow-auto max-h-[calc(100dvh-90px)] border-t-4 ${editMode ? "border-yellow-400" : "border-gray-400"}`}>
       <table className="w-full border-collapse [&_th]:border-r [&_th]:border-black/50 [&_td]:border-r [&_td]:border-black/50 [&_th:last-child]:border-r-0 [&_td:last-child]:border-r-0 [&_th]:shadow-[inset_0_3px_1px_rgba(255,255,255,0.5),inset_0_-3px_1px_rgba(0,0,0,0.2)]">
         <thead className="sticky -top-px z-10 shadow-[0_3px_6px_rgba(0,0,0,0.2)] will-change-transform [transform:translateZ(0)]">
           {/* Column headers */}
@@ -486,6 +531,114 @@ export function BubbleBoard({
         </tbody>
       </table>
     </div>
+    </div>
+  );
+}
+
+function MobileLocationCard({
+  location,
+  milestones,
+  allDone,
+  contact,
+  canEdit,
+  userRole,
+  userZoneId,
+  onToggle,
+}: {
+  location: Location;
+  milestones: Milestone[];
+  allDone: boolean;
+  contact: Location["contacts"][0] | undefined;
+  canEdit: boolean;
+  userRole: string;
+  userZoneId: number | null;
+  onToggle: (locationId: number, milestoneId: number) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const doneCount = milestones.filter((m) => location.statuses.some((s) => s.milestoneId === m.id && s.value)).length;
+  const canEditThis = canEdit && canUserEditZone(userRole, userZoneId, location.zoneId);
+
+  return (
+    <div className={`rounded-xl border-2 overflow-hidden transition-colors ${allDone ? "border-green-400 bg-green-50" : "border-gray-200 bg-white"}`}>
+      {/* Header — always visible */}
+      <div className="px-3 py-2.5 cursor-pointer" onClick={() => setExpanded(!expanded)}>
+        <div className="flex items-center justify-between">
+          <div className="flex-1 min-w-0">
+            <div className="font-black text-sm truncate">{location.name}</div>
+            <div className="text-xs text-gray-500 truncate">{location.address}{location.city ? `, ${location.city}` : ""}</div>
+          </div>
+          <div className="flex items-center gap-2 ml-2 shrink-0">
+            <span className="text-xs font-bold text-gray-500">{doneCount}/{milestones.length}</span>
+            <span className={`text-xs ${expanded ? "rotate-180" : ""} transition-transform`}>▼</span>
+          </div>
+        </div>
+        {/* Mini bubble row */}
+        <div className="flex gap-1.5 mt-2">
+          {milestones.map((m) => {
+            const status = location.statuses.find((s) => s.milestoneId === m.id);
+            const done = status?.value ?? false;
+            return (
+              <div
+                key={m.id}
+                className={`flex-1 h-2 rounded-full ${done ? "bg-green-500" : "bg-red-300"}`}
+                title={`${m.label}: ${done ? "Done" : "Not done"}`}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Expanded detail */}
+      {expanded && (
+        <div className="px-3 pb-3 border-t border-gray-100">
+          {/* Info row */}
+          <div className="flex gap-3 text-xs text-gray-600 py-2">
+            {location.pollId && <span className="font-mono">{location.pollId}</span>}
+            <span className="font-bold">{location.zone.name}</span>
+            {contact && <span>{contact.name}</span>}
+          </div>
+          {/* Contact phones */}
+          {contact && contact.phones.length > 0 && (
+            <div className="mb-2 space-y-0.5">
+              {(contact.phones as { label: string; number: string }[]).map((p, i) => (
+                <a key={i} href={`tel:${p.number.replace(/\D/g, "")}`} className="flex items-center gap-2 text-xs text-blue-600 hover:underline">
+                  <span>{formatPhone(p.number)}</span>
+                  <span className="text-gray-400">{p.label}</span>
+                </a>
+              ))}
+            </div>
+          )}
+          {/* Full-size bubbles */}
+          <div className="grid grid-cols-4 gap-2">
+            {milestones.map((m) => {
+              const status = location.statuses.find((s) => s.milestoneId === m.id);
+              const done = status?.value ?? false;
+              const code = bubbleCode(m.label);
+              return (
+                <button
+                  key={m.id}
+                  disabled={!canEditThis}
+                  onClick={() => onToggle(location.id, m.id)}
+                  className={`flex flex-col items-center gap-1 rounded-lg p-2 border-2 transition-all ${
+                    done
+                      ? "border-green-500 bg-green-50"
+                      : "border-red-300 bg-red-50"
+                  } ${canEditThis ? "active:scale-95" : "opacity-80"}`}
+                >
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black ${
+                    done
+                      ? "bg-gradient-to-b from-green-300 to-green-700 text-white border-2 border-green-800"
+                      : "bg-gradient-to-b from-white to-gray-200 text-red-600 border-2 border-red-500"
+                  }`}>
+                    {done ? "✓" : code}
+                  </div>
+                  <span className="text-[10px] font-bold text-gray-700 leading-tight text-center">{milestoneHeader(m.label).action}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -812,7 +965,7 @@ function StatusBubble({
   const done = status?.value ?? false;
   const updatedBy = status?.updatedByUser?.displayName;
   const updatedAt = status?.updatedAt
-    ? new Date(status.updatedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })
+    ? new Date(status.updatedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" })
     : null;
 
   const tooltipText = updatedBy

@@ -33,6 +33,16 @@ function LogoBubble({ defaultIdx = 1, delay = 0 }: { defaultIdx?: number; delay?
   );
 }
 
+function timeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 5) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ago`;
+}
+
 async function downloadAuditCSV() {
   const res = await fetch("/api/admin/audit");
   if (!res.ok) return false;
@@ -230,7 +240,7 @@ function AuditCacheBar({ children }: { children?: React.ReactNode }) {
 
   if (count === null) return null;
 
-  const sinceText = oldest ? `since ${new Date(oldest).toLocaleDateString()}` : "";
+  const sinceText = oldest ? `since ${new Date(oldest).toLocaleDateString("en-US", { timeZone: "America/New_York" })}` : "";
 
   return (
     <div className="flex items-center justify-between px-4 py-1 bg-gray-900 text-gray-300 text-xs font-medium">
@@ -377,6 +387,9 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
   const editModeRef = useRef(false);
   const [liveConnected, setLiveConnected] = useState(false);
   const [nightMode, setNightMode] = useState(false);
+  const [mobileMenu, setMobileMenu] = useState(false);
+  const [lastActivity, setLastActivity] = useState<{ text: string; time: Date } | null>(null);
+  const [, setTick] = useState(0);
   // Snapshot of locations when edit mode was entered — for undo
   const [snapshot, setSnapshot] = useState<Location[]>([]);
   // History of local states for step-by-step undo
@@ -398,6 +411,12 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Tick every 10s to update "time ago" display
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 10000);
+    return () => clearInterval(t);
+  }, []);
 
   // Keep ref in sync for SSE callback
   useEffect(() => { editModeRef.current = editMode; }, [editMode]);
@@ -423,20 +442,27 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
           if (editModeRef.current) return;
 
           if (event.type === "status_update") {
-            // Granular update — just patch the one status
-            setLocations((prev) =>
-              prev.map((loc) => {
-                if (loc.id !== event.locationId) return loc;
+            // Build activity text
+            setLocations((prev) => {
+              const loc = prev.find((l) => l.id === event.locationId);
+              if (loc) {
+                const ms = milestones.find((m) => m.id === event.milestoneId);
+                const who = event.updatedByUser?.displayName || "SMS";
+                const status = event.value ? "GREEN" : "RED";
+                setLastActivity({ text: `${loc.name} — ${ms?.label || "?"} → ${status} by ${who}`, time: new Date() });
+              }
+              return prev.map((l) => {
+                if (l.id !== event.locationId) return l;
                 return {
-                  ...loc,
-                  statuses: loc.statuses.map((s) =>
+                  ...l,
+                  statuses: l.statuses.map((s) =>
                     s.milestoneId === event.milestoneId
                       ? { ...s, value: event.value, updatedAt: event.updatedAt, updatedByUser: event.updatedByUser }
                       : s
                   ),
                 };
-              })
-            );
+              });
+            });
           } else if (event.type === "board_reset" || event.type === "location_change") {
             // Full refresh for bulk changes
             fetchData();
@@ -574,12 +600,19 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
 
     const { status: updated } = await res.json();
 
+    const loc = locations.find((l) => l.id === locationId);
+    const ms = milestones.find((m) => m.id === milestoneId);
+    if (loc && ms) {
+      const status = updated.value ? "GREEN" : "RED";
+      setLastActivity({ text: `${loc.name} — ${ms.label} → ${status} by ${session.displayName}`, time: new Date() });
+    }
+
     setLocations((prev) =>
-      prev.map((loc) => {
-        if (loc.id !== locationId) return loc;
+      prev.map((l) => {
+        if (l.id !== locationId) return l;
         return {
-          ...loc,
-          statuses: loc.statuses.map((s) =>
+          ...l,
+          statuses: l.statuses.map((s) =>
             s.milestoneId === milestoneId
               ? {
                   ...s,
@@ -882,80 +915,94 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
 
   return (
     <main className={`pt-0 pb-0 space-y-0 h-screen overflow-hidden ${nightMode ? "bg-[#141414]" : ""}`}>
-      {/* Admin toolbar — top of page, outside the green header */}
+      {/* Admin toolbar — desktop */}
       {session.role === "ADMIN" && (
-        <AuditCacheBar>
-          {canEditDashboard && !editMode && (
-            <button
-              onClick={() => {
-                setSnapshot(structuredClone(locations));
-                setUndoHistory([]);
-                setNewLocationIds(new Set());
-                setDeletedLocationIds(new Set());
-                setEditMode(true);
-              }}
-              className="h-6 px-2 rounded border border-yellow-300 bg-yellow-500/40 hover:bg-yellow-500/60 text-xs font-bold flex items-center"
-            >
-              Edit Dashboard
-            </button>
-          )}
-          {editMode && (
-            <>
+        <div className="hidden md:block">
+          <AuditCacheBar>
+            {canEditDashboard && !editMode && (
               <button
-                onClick={handleUndo}
-                disabled={undoHistory.length === 0}
-                className="h-6 px-2 rounded border border-orange-300 bg-orange-500/40 hover:bg-orange-500/60 text-xs font-bold flex items-center disabled:opacity-40 disabled:cursor-not-allowed"
-                title={undoHistory.length > 0 ? `Undo (${undoHistory.length})` : "Nothing to undo"}
+                onClick={() => {
+                  setSnapshot(structuredClone(locations));
+                  setUndoHistory([]);
+                  setNewLocationIds(new Set());
+                  setDeletedLocationIds(new Set());
+                  setEditMode(true);
+                }}
+                className="h-6 px-2 rounded border border-yellow-300 bg-yellow-500/40 hover:bg-yellow-500/60 text-xs font-bold flex items-center"
               >
-                ↩ Undo{undoHistory.length > 0 ? ` (${undoHistory.length})` : ""}
+                Edit Dashboard
               </button>
-              <button
-                onClick={handleDiscardEdits}
-                className="h-6 px-2 rounded border border-red-300 bg-red-500/40 hover:bg-red-500/60 text-xs font-bold flex items-center"
-              >
-                ✕ Discard
-              </button>
-              <button
-                onClick={handleApply}
-                className="h-6 px-2 rounded border border-green-300 bg-green-500/40 hover:bg-green-500/60 text-xs font-bold flex items-center"
-              >
-                ✓ Apply
-              </button>
-            </>
-          )}
-          <a
-            href="/admin/pins"
-            className="h-6 px-2 rounded border border-purple-300 bg-purple-500/40 text-xs font-bold hover:bg-purple-500/60 flex items-center"
-          >
-            Account Management
-          </a>
-          <a
-            href="/admin/cells"
-            className="h-6 px-2 rounded border border-pink-300 bg-pink-500/40 text-xs font-bold hover:bg-pink-500/60 flex items-center"
-          >
-            Cell Management
-          </a>
-          <a
-            href="/admin/import"
-            className="h-6 px-2 rounded border border-teal-300 bg-teal-500/40 text-xs font-bold hover:bg-teal-500/60 flex items-center"
-          >
-            Import Data
-          </a>
-          <SaveAuditButton />
-          <RestoreButton onRestored={fetchData} />
-          <ClearElectionButton onReset={() => {
-            setLocations((prev) =>
-              prev.map((loc) => ({
-                ...loc,
-                statuses: loc.statuses.map((s) => ({ ...s, value: false })),
-              }))
-            );
-          }} />
-          <DeleteLocationsButton onDeleted={fetchData} />
-        </AuditCacheBar>
+            )}
+            {editMode && (
+              <>
+                <button
+                  onClick={handleUndo}
+                  disabled={undoHistory.length === 0}
+                  className="h-6 px-2 rounded border border-orange-300 bg-orange-500/40 hover:bg-orange-500/60 text-xs font-bold flex items-center disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={undoHistory.length > 0 ? `Undo (${undoHistory.length})` : "Nothing to undo"}
+                >
+                  ↩ Undo{undoHistory.length > 0 ? ` (${undoHistory.length})` : ""}
+                </button>
+                <button
+                  onClick={handleDiscardEdits}
+                  className="h-6 px-2 rounded border border-red-300 bg-red-500/40 hover:bg-red-500/60 text-xs font-bold flex items-center"
+                >
+                  ✕ Discard
+                </button>
+                <button
+                  onClick={handleApply}
+                  className="h-6 px-2 rounded border border-green-300 bg-green-500/40 hover:bg-green-500/60 text-xs font-bold flex items-center"
+                >
+                  ✓ Apply
+                </button>
+              </>
+            )}
+            <a href="/admin/pins" className="h-6 px-2 rounded border border-purple-300 bg-purple-500/40 text-xs font-bold hover:bg-purple-500/60 flex items-center">Account Management</a>
+            <a href="/admin/cells" className="h-6 px-2 rounded border border-pink-300 bg-pink-500/40 text-xs font-bold hover:bg-pink-500/60 flex items-center">Cell Management</a>
+            <a href="/admin/import" className="h-6 px-2 rounded border border-teal-300 bg-teal-500/40 text-xs font-bold hover:bg-teal-500/60 flex items-center">Import Data</a>
+            <SaveAuditButton />
+            <RestoreButton onRestored={fetchData} />
+            <ClearElectionButton onReset={() => {
+              setLocations((prev) =>
+                prev.map((loc) => ({
+                  ...loc,
+                  statuses: loc.statuses.map((s) => ({ ...s, value: false })),
+                }))
+              );
+            }} />
+            <DeleteLocationsButton onDeleted={fetchData} />
+          </AuditCacheBar>
+        </div>
       )}
+      {/* Admin hamburger — mobile */}
+      {session.role === "ADMIN" && (
+        <div className="md:hidden">
+          <div className="flex items-center justify-between px-3 py-1 bg-gray-900 text-gray-300 text-xs font-medium">
+            <span className="text-gray-400">Admin</span>
+            <button onClick={() => setMobileMenu(!mobileMenu)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-700 text-lg">
+              {mobileMenu ? "✕" : "☰"}
+            </button>
+          </div>
+          {mobileMenu && (
+            <div className="bg-gray-900 border-t border-gray-700 px-3 py-2 space-y-2">
+              <a href="/admin/pins" className="block px-3 py-2 rounded-lg bg-purple-500/20 border border-purple-400/30 text-sm font-bold text-purple-300">Account Management</a>
+              <a href="/admin/cells" className="block px-3 py-2 rounded-lg bg-pink-500/20 border border-pink-400/30 text-sm font-bold text-pink-300">Cell Management</a>
+              <a href="/admin/import" className="block px-3 py-2 rounded-lg bg-teal-500/20 border border-teal-400/30 text-sm font-bold text-teal-300">Import Data</a>
+              <a href="/admin/audit" className="block px-3 py-2 rounded-lg bg-cyan-500/20 border border-cyan-400/30 text-sm font-bold text-cyan-300">Audit Log</a>
+            </div>
+          )}
+        </div>
+      )}
+      {/* Live activity bar — always visible */}
+      <a href="/changelog" className="flex items-center justify-between px-4 py-1 bg-gray-800 text-gray-300 text-xs font-medium hover:bg-gray-700 cursor-pointer">
+        <div className="flex items-center gap-2">
+          <span className={`inline-block w-1.5 h-1.5 rounded-full ${lastActivity ? "bg-yellow-400 animate-pulse" : "bg-gray-500"}`} />
+          <span>{lastActivity ? lastActivity.text : "Election Overview"}</span>
+        </div>
+        <span className="text-gray-500">{lastActivity ? `${timeAgo(lastActivity.time)} · ` : ""}View all</span>
+      </a>
       <div className="relative bg-gradient-to-b from-emerald-400 via-emerald-500 to-emerald-700 text-white shadow-[0_4px_12px_rgba(0,0,0,0.25),inset_0_3px_1px_rgba(255,255,255,0.35),inset_0_-3px_1px_rgba(0,0,0,0.25)] [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
-      <div className="absolute inset-0 flex flex-col items-center pointer-events-none z-10">
+      <div className="hidden md:flex absolute inset-0 flex-col items-center pointer-events-none z-10">
         <span className="text-6xl uppercase tracking-normal mt-2 pointer-events-auto" style={{ fontFamily: "'Cinzel', serif", fontWeight: 400 }}>Green Bubbles</span>
         <div className="flex-1 flex items-center -mt-2">
           <span className="flex items-center gap-3 pointer-events-auto"><LogoBubble delay={0} /><LogoBubble delay={0} /><LogoBubble delay={0} /><LogoBubble delay={0} /><LogoBubble delay={0} /></span>
@@ -982,15 +1029,15 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center px-4 py-2">
+      {/* Filters — desktop only */}
+      <div className="hidden md:flex items-center px-4 py-2">
         <div className="flex items-center gap-3">
           <input
             type="text"
             placeholder="Search locations..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-8 w-56 rounded-md border border-white/50 bg-white/30 px-3 text-sm font-bold text-white placeholder:text-white/70 placeholder:font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            className="h-8 w-56 rounded-md border border-white/60 bg-black/20 px-3 text-sm font-bold text-white placeholder:text-white/80 placeholder:font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
           />
           {showZoneFilter && (
             <select
@@ -1000,7 +1047,7 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
                   e.target.value === "all" ? "all" : Number(e.target.value)
                 )
               }
-              className="h-8 rounded-md border border-white/50 bg-white/30 px-3 text-sm font-bold text-white [&_option]:text-black [&_option]:bg-white"
+              className="h-8 rounded-md border border-white/60 bg-black/20 px-3 text-sm font-bold text-white [&_option]:text-black [&_option]:bg-white"
             >
               <option value="all">All Zones</option>
               {zones.map((z) => (
