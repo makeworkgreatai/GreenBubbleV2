@@ -1,19 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hash } from "bcryptjs";
-import { execSync } from "child_process";
 
-// One-time setup endpoint — creates tables and seeds admin user
-// Remove this after first use in production
+// One-time setup endpoint — seeds admin user and milestones
+// Database tables are created during build via "prisma db push"
 export async function GET() {
   try {
-    // Push schema to database
-    execSync("npx prisma db push --skip-generate", {
-      cwd: process.cwd(),
-      env: process.env as NodeJS.ProcessEnv,
-      stdio: "pipe",
-    });
-
     // Check if admin already exists
     const existing = await db.user.findFirst({ where: { role: "ADMIN" } });
     if (existing) {
