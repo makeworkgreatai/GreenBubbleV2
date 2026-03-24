@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { MobileAdminNav } from "@/components/mobile-admin-nav";
 
 interface LocationPhone {
   id: number;
@@ -157,62 +158,130 @@ export default function CellManagementPage() {
   }
 
   return (
-    <main className="max-w-[1200px] mx-auto p-6 min-h-screen">
-      <div className="flex items-center justify-between mb-6">
+    <>
+    <MobileAdminNav />
+    <main className="max-w-[1200px] mx-auto p-4 md:p-6 min-h-screen">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-3">
         <div>
-          <h1 className="text-2xl font-black">Cell Management</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-xl md:text-2xl font-black">Cell Management</h1>
+          <p className="text-xs md:text-sm text-gray-500">
             {assignedCount} of {totalCount} locations have an assigned phone
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => fileRef.current?.click()}
             disabled={importing}
-            className="px-4 py-2 rounded-md bg-pink-600 text-white text-sm font-bold hover:bg-pink-700 disabled:opacity-50"
+            className="px-3 md:px-4 py-2 rounded-md bg-pink-600 text-white text-xs md:text-sm font-bold hover:bg-pink-700 disabled:opacity-50"
           >
             {importing ? "Importing..." : "Import CSV"}
           </button>
           <input ref={fileRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleImport} />
           <button
             onClick={handleExport}
-            className="px-4 py-2 rounded-md border text-sm font-bold hover:bg-gray-100"
+            className="px-3 md:px-4 py-2 rounded-md border text-xs md:text-sm font-bold hover:bg-gray-100"
           >
             Export CSV
           </button>
           {assignedCount > 0 && (
             <button
               onClick={handleClearAll}
-              className="px-4 py-2 rounded-md border border-red-300 text-red-600 text-sm font-bold hover:bg-red-50"
+              className="px-3 md:px-4 py-2 rounded-md border border-red-300 text-red-600 text-xs md:text-sm font-bold hover:bg-red-50"
             >
               Clear All
             </button>
           )}
-          <a href="/" className="px-4 py-2 rounded-md border text-sm font-bold hover:bg-gray-100">
+          <a href="/" className="px-3 md:px-4 py-2 rounded-md border text-xs md:text-sm font-bold hover:bg-gray-100">
             Back to Dashboard
           </a>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-col md:flex-row gap-3 mb-4">
         <input
           type="text"
           placeholder="Search by name, poll ID, or phone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-9 w-72 rounded-md border px-3 text-sm"
+          className="h-9 w-full md:w-72 rounded-md border px-3 text-sm"
         />
-        <select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} className="h-9 rounded-md border px-3 text-sm">
-          <option value="all">All ({totalCount})</option>
-          <option value="assigned">Assigned ({assignedCount})</option>
-          <option value="unassigned">Unassigned ({totalCount - assignedCount})</option>
-        </select>
-        <span className="flex items-center text-sm text-gray-500">{filtered.length} shown</span>
+        <div className="flex gap-3">
+          <select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} className="h-9 rounded-md border px-3 text-sm">
+            <option value="all">All ({totalCount})</option>
+            <option value="assigned">Assigned ({assignedCount})</option>
+            <option value="unassigned">Unassigned ({totalCount - assignedCount})</option>
+          </select>
+          <span className="flex items-center text-sm text-gray-500">{filtered.length} shown</span>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="border rounded-lg">
+      {/* Mobile Cards */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="px-3 py-8 text-center text-gray-500">Loading...</div>
+        ) : filtered.length === 0 ? (
+          <div className="px-3 py-8 text-center text-gray-500">No locations found</div>
+        ) : (
+          filtered.map((loc) => (
+            <div key={loc.id} className="border rounded-lg p-3 bg-white">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="min-w-0">
+                  <div className="font-medium text-sm truncate">{loc.name}</div>
+                  <div className="flex gap-2 text-xs text-gray-500 mt-0.5">
+                    <span className="font-mono">{loc.pollId || "—"}</span>
+                    <span>·</span>
+                    <span>{loc.zone.name}</span>
+                  </div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  {loc.smsPhone && (
+                    <button
+                      onClick={() => handleClear(loc.id)}
+                      className="px-2 py-1 rounded text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="text-sm">
+                {editingId === loc.id ? (
+                  <div className="flex gap-1">
+                    <input
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleSave(loc.id); if (e.key === "Escape") setEditingId(null); }}
+                      placeholder="(216) 555-1234"
+                      autoFocus
+                      className="h-7 flex-1 rounded border px-2 text-sm font-mono"
+                    />
+                    <button onClick={() => handleSave(loc.id)} className="text-xs text-emerald-600 font-bold">Save</button>
+                    <button onClick={() => setEditingId(null)} className="text-xs text-gray-400">Cancel</button>
+                  </div>
+                ) : loc.smsPhone ? (
+                  <span
+                    className="font-mono font-bold text-pink-700 cursor-pointer hover:underline"
+                    onClick={() => { setEditingId(loc.id); setEditValue(loc.smsPhone || ""); }}
+                  >
+                    {formatPhone(loc.smsPhone)}
+                  </span>
+                ) : (
+                  <span
+                    className="text-gray-400 cursor-pointer hover:text-gray-600"
+                    onClick={() => { setEditingId(loc.id); setEditValue(""); }}
+                  >
+                    Tap to assign phone
+                  </span>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block border rounded-lg">
         <table className="w-full text-sm">
           <thead className="bg-gray-100">
             <tr className="text-left">
@@ -291,5 +360,6 @@ export default function CellManagementPage() {
         </div>
       </div>
     </main>
+    </>
   );
 }

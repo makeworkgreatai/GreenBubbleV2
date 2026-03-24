@@ -1,0 +1,17 @@
+!table
+!version 300
+!charset WindowsLatin1
+
+Definition Table
+  File "Precincts_List_264.csv"
+  Type ASCII Delimiter "," Titles Charset "WindowsLatin1"
+  Fields 4
+    Poll_id Smallint ;
+    precinct_id Smallint ;
+    MUN Char (21) ;
+    Label Char (6) ;
+begin_metadata
+"\IsReadOnly" = "FALSE"
+"\MapInfo" = ""
+"\MapInfo\TableID" = "280318d8-d9d5-4e62-a453-7afeffcc334c"
+end_metadata

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Green Bubbles — Feature Comparison</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; color: #111; }
+  h1 { font-size: 24px; margin-bottom: 4px; }
+  h2 { font-size: 18px; color: #444; margin-bottom: 20px; }
+  h3 { font-size: 15px; margin-top: 24px; margin-bottom: 8px; background: #f5f5f5; padding: 6px 10px; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 12px; }
+  th { background: #1a1a1a; color: white; text-align: left; padding: 6px 10px; font-size: 11px; }
+  td { padding: 5px 10px; border-bottom: 1px solid #e5e5e5; }
+  tr:nth-child(even) { background: #fafafa; }
+  td:nth-child(2) { color: #999; }
+  td:nth-child(3) { color: #059669; font-weight: 600; }
+  @media print { body { padding: 0; } h3 { break-after: avoid; } table { break-inside: avoid; } }
+  @page { size: portrait; margin: 0.5in; }
+</style>
+</head>
+<body>
+<h1>Green Bubbles — Feature Comparison</h1>
+<h2>V1 (Legacy) vs V2 (New)</h2>
+
+<h3>Dashboard</h3>
+<table>
+<thead><tr><th>Feature</th><th>V1</th><th>V2</th></tr></thead>
+<tbody>
+<tr><td>Status board with bubble indicators</td><td>Yes</td><td>Yes</td></tr>
+<tr><td>Real-time updates across all screens</td><td>Basic (all-or-nothing)</td><td>Granular per-bubble updates</td></tr>
+<tr><td>Connection status indicator</td><td>No</td><td>Yes</td></tr>
+<tr><td>Auto-reconnect on drop</td><td>No</td><td>Yes (3 seconds)</td></tr>
+<tr><td>Search locations</td><td>No</td><td>Yes</td></tr>
+<tr><td>Sort by any column</td><td>No</td><td>Yes</td></tr>
+<tr><td>Filter by zone</td><td>No</td><td>Yes</td></tr>
+<tr><td>Green highlight for completed rows</td><td>No</td><td>Yes</td></tr>
+<tr><td>Night mode</td><td>No</td><td>Yes</td></tr>
+<tr><td>Column visibility toggles</td><td>No</td><td>Yes</td></tr>
+<tr><td>Mobile responsive view</td><td>No</td><td>Yes (card layout)</td></tr>
+<tr><td>Sticky headers</td><td>No</td><td>Yes (GPU accelerated)</td></tr>
+<tr><td>Reason required when unmarking</td><td>No</td><td>Yes</td></tr>
+<tr><td>Print stylesheet</td><td>No</td><td>Yes</td></tr>
+</tbody></table>
+
+<h3>SMS Integration</h3>
+<table>
+<thead><tr><th>Feature</th><th>V1</th><th>V2</th></tr></thead>
+<tbody>
+<tr><td>Text-based status updates</td><td>No</td><td>Yes</td></tr>
+<tr><td>Auto-identify location by phone</td><td>No</td><td>Yes</td></tr>
+<tr><td>Shorthand commands</td><td>No</td><td>Yes</td></tr>
+<tr><td>Status check via text</td><td>No</td><td>Yes</td></tr>
+<tr><td>Help command</td><td>No</td><td>Yes</td></tr>
+<tr><td>Undo via text</td><td>No</td><td>Yes</td></tr>
+<tr><td>Phone-to-location locking</td><td>No</td><td>Yes</td></tr>
+<tr><td>SMS audit logging</td><td>No</td><td>Yes</td></tr>
+</tbody></table>
+
+<h3>Election Overview</h3>
+<table>
+<thead><tr><th>Feature</th><th>V1</th><th>V2</th></tr></thead>
+<tbody>
+<tr><td>Overall completion percentage</td><td>No</td><td>Yes</td></tr>
+<tr><td>Per-milestone progress bars</td><td>No</td><td>Yes</td></tr>
+<tr><td>Per-zone completion breakdown</td><td>No</td><td>Yes</td></tr>
+<tr><td>Per-city completion breakdown</td><td>No</td><td>Yes</td></tr>
+<tr><td>Drill down to remaining/complete locations</td><td>No</td><td>Yes</td></tr>
+<tr><td>Filter by zone, city, milestone</td><td>No</td><td>Yes</td></tr>
+<tr><td>Auto-refresh for TV display</td><td>No</td><td>Yes (30s)</td></tr>
+<tr><td>Live activity bar</td><td>No</td><td>Yes</td></tr>
+<tr><td>Change log with filters</td><td>No</td><td>Yes</td></tr>
+</tbody></table>
+
+<h3>User Management</h3>
+<table>
+<thead><tr><th>Feature</th><th>V1</th><th>V2</th></tr></thead>
+<tbody>
+<tr><td>User accounts</td><td>Username/password</td><td>PIN-based (shared + individual)</td></tr>
+<tr><td>Role-based access</td><td>6 roles, no zone restrictions</td><td>5 roles with zone restrictions</td></tr>
+<tr><td>Viewer/read-only role</td><td>No</td><td>Yes</td></tr>
+<tr><td>Open access (no login) for viewers</td><td>No</td><td>Yes</td></tr>
+<tr><td>Shared PIN per role</td><td>No</td><td>Yes</td></tr>
+<tr><td>Import legacy logins</td><td>No</td><td>Yes</td></tr>
+<tr><td>Reset / expire PINs</td><td>No</td><td>Yes</td></tr>
+</tbody></table>
+
+<h3>Cell Phone Management</h3>
+<table>
+<thead><tr><th>Feature</th><th>V1</th><th>V2</th></tr></thead>
+<tbody>
+<tr><td>Assign phones to locations</td><td>No</td><td>Yes</td></tr>
+<tr><td>Bulk import via CSV</td><td>No</td><td>Yes</td></tr>
+<tr><td>Export assignments</td><td>No</td><td>Yes</td></tr>
+<tr><td>Duplicate prevention</td><td>No</td><td>Yes</td></tr>
+</tbody></table>
+
+<h3>Data Import</h3>
+<table>
+<thead><tr><th>Feature</th><th>V1</th><th>V2</th></tr></thead>
+<tbody>
+<tr><td>CSV upload</td><td>5 separate uploads, manual format</td><td>Drag and drop all files at once</td></tr>
+<tr><td>Auto-detect file type</td><td>No</td><td>Yes</td></tr>
+<tr><td>XLSX support</td><td>No</td><td>Yes</td></tr>
+<tr><td>Smart merge</td><td>No</td><td>Yes</td></tr>
+<tr><td>Error reporting</td><td>No</td><td>Yes (with row numbers)</td></tr>
+</tbody></table>
+
+<h3>Audit &amp; Compliance</h3>
+<table>
+<thead><tr><th>Feature</th><th>V1</th><th>V2</th></tr></thead>
+<tbody>
+<tr><td>Audit trail</td><td>DB table not in app</td><td>Full in-app audit system</td></tr>
+<tr><td>View audit log</td><td>Query DB directly</td><td>Searchable viewer with filters</td></tr>
+<tr><td>CSV export</td><td>Manual extraction</td><td>One-click download</td></tr>
+<tr><td>Login activity tracking</td><td>No</td><td>Yes (IP, device, success/fail)</td></tr>
+<tr><td>Forced audit download before reset</td><td>No</td><td>Yes</td></tr>
+</tbody></table>
+
+<h3>Backup &amp; Recovery</h3>
+<table>
+<thead><tr><th>Feature</th><th>V1</th><th>V2</th></tr></thead>
+<tbody>
+<tr><td>Board backup</td><td>No</td><td>Yes (CSV)</td></tr>
+<tr><td>Board restore</td><td>No</td><td>Yes (CSV upload)</td></tr>
+<tr><td>Clear election</td><td>No</td><td>Yes (forces audit download)</td></tr>
+<tr><td>Delete all locations</td><td>No</td><td>Yes (forces backup first)</td></tr>
+</tbody></table>
+
+<h3>Edit Dashboard</h3>
+<table>
+<thead><tr><th>Feature</th><th>V1</th><th>V2</th></tr></thead>
+<tbody>
+<tr><td>Inline editing</td><td>No</td><td>Yes (locations, contacts, phones, precincts)</td></tr>
+<tr><td>Add/remove rows</td><td>No</td><td>Yes</td></tr>
+<tr><td>Buffered edits with undo</td><td>No</td><td>Yes</td></tr>
+</tbody></table>
+
+<h3>Security</h3>
+<table>
+<thead><tr><th>Feature</th><th>V1</th><th>V2</th></tr></thead>
+<tbody>
+<tr><td>API authentication</td><td>Several endpoints open</td><td>Every endpoint authenticated</td></tr>
+<tr><td>PIN/password hashing</td><td>ASP.NET Identity</td><td>bcrypt</td></tr>
+<tr><td>Zone-level restrictions</td><td>No</td><td>Yes</td></tr>
+<tr><td>Admin page access control</td><td>No</td><td>Yes (middleware)</td></tr>
+<tr><td>Login tracking</td><td>No</td><td>Yes (IP, device)</td></tr>
+</tbody></table>
+
+<h3>Technical</h3>
+<table>
+<thead><tr><th>Spec</th><th>V1</th><th>V2</th></tr></thead>
+<tbody>
+<tr><td>Language</td><td>C# (.NET 4.6.1)</td><td>TypeScript</td></tr>
+<tr><td>Framework</td><td>ASP.NET Web API</td><td>Next.js 15</td></tr>
+<tr><td>Database</td><td>SQL Server (external)</td><td>PostgreSQL</td></tr>
+<tr><td>Real-time</td><td>SignalR</td><td>Server-Sent Events</td></tr>
+<tr><td>Mobile</td><td>None</td><td>Full responsive</td></tr>
+<tr><td>SMS</td><td>None</td><td>Twilio</td></tr>
+</tbody></table>
+
+</body>
+</html>

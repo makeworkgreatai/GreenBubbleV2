@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { MobileAdminNav } from "@/components/mobile-admin-nav";
 
 interface FileResult {
   name: string;
@@ -73,18 +74,20 @@ export default function ImportPage() {
   const totalErrors = results?.reduce((s, r) => s + r.errors.length, 0) || 0;
 
   return (
-    <main className="max-w-3xl mx-auto p-6 h-screen overflow-auto">
-      <div className="flex items-center justify-between mb-6">
+    <>
+    <MobileAdminNav />
+    <main className="max-w-3xl mx-auto p-4 md:p-6 min-h-screen">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-black">Import Data</h1>
           <p className="text-sm text-gray-500">Drop your files — we'll figure out what's what</p>
         </div>
-        <a href="/" className="px-4 py-2 rounded-md border text-sm font-bold hover:bg-gray-100">Back to Dashboard</a>
+        <a href="/" className="px-4 py-2 rounded-md border text-sm font-bold hover:bg-gray-100 shrink-0">Back to Dashboard</a>
       </div>
 
       {/* Drop zone */}
       <label
-        className="block mb-4 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors"
+        className="block mb-4 border-2 border-dashed border-gray-300 rounded-lg p-4 md:p-8 text-center cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors"
         onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-emerald-400", "bg-emerald-50"); }}
         onDragLeave={(e) => { e.currentTarget.classList.remove("border-emerald-400", "bg-emerald-50"); }}
         onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove("border-emerald-400", "bg-emerald-50"); handleFiles(e.dataTransfer.files); }}
@@ -108,12 +111,12 @@ export default function ImportPage() {
       {files.length > 0 && (
         <div className="mb-4 space-y-2">
           {files.map((f, i) => (
-            <div key={i} className="flex items-center justify-between px-3 py-2 rounded-md border bg-white">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-mono font-bold">{f.name}</span>
-                <span className="text-xs text-gray-500">({(f.size / 1024).toFixed(1)} KB)</span>
+            <div key={i} className="flex items-center justify-between gap-2 px-3 py-2 rounded-md border bg-white min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-sm font-mono font-bold truncate">{f.name}</span>
+                <span className="text-xs text-gray-500 shrink-0">({(f.size / 1024).toFixed(1)} KB)</span>
               </div>
-              <button onClick={() => removeFile(i)} className="text-xs text-red-500 hover:text-red-700 font-bold">Remove</button>
+              <button onClick={() => removeFile(i)} className="text-xs text-red-500 hover:text-red-700 font-bold shrink-0">Remove</button>
             </div>
           ))}
           <button
@@ -137,7 +140,7 @@ export default function ImportPage() {
           <h2 className="font-bold text-lg mb-3">Import Complete</h2>
 
           {/* Totals */}
-          <div className="grid grid-cols-4 gap-3 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
             <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-center">
               <div className="text-2xl font-black text-green-700">{totalCreated}</div>
               <div className="text-xs font-bold text-green-600">Created</div>
@@ -161,12 +164,12 @@ export default function ImportPage() {
             {results.map((r, i) => {
               const typeInfo = TYPE_LABELS[r.type] || TYPE_LABELS.unknown;
               return (
-                <div key={i} className="rounded-md border p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono font-bold text-sm">{r.name}</span>
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${typeInfo.color}`}>{typeInfo.label}</span>
+                <div key={i} className="rounded-md border p-3 min-w-0 overflow-hidden">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-1 mb-2">
+                    <span className="font-mono font-bold text-sm truncate">{r.name}</span>
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold shrink-0 w-fit ${typeInfo.color}`}>{typeInfo.label}</span>
                   </div>
-                  <div className="flex gap-4 text-xs">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
                     <span className="text-green-700 font-bold">{r.created} created</span>
                     <span className="text-blue-700 font-bold">{r.updated} updated</span>
                     <span className="text-gray-500">{r.skipped} skipped</span>
@@ -189,7 +192,7 @@ export default function ImportPage() {
       {/* Help */}
       <div className="mt-8 rounded-lg border bg-gray-50 p-4">
         <h3 className="font-bold text-sm mb-2">Supported Files</h3>
-        <div className="text-sm text-gray-700 space-y-1">
+        <div className="text-sm text-gray-700 space-y-1 break-words">
           <div><span className="font-bold text-blue-700">Polls_Elec.csv</span> — Locations with lat/lng, city, and precincts</div>
           <div><span className="font-bold text-blue-700">Poll_Locations.csv</span> — Locations with zones</div>
           <div><span className="font-bold text-emerald-700">VLM Phone List</span> (.csv or .xlsx) — Locations + contacts + all phones in one file</div>
@@ -200,5 +203,6 @@ export default function ImportPage() {
         <p className="text-xs text-gray-500 mt-3">Files are auto-detected by their column headers and processed in the right order. Duplicates are skipped or updated.</p>
       </div>
     </main>
+    </>
   );
 }

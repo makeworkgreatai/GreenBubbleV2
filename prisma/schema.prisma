@@ -113,6 +113,7 @@ model User {
   auditLogs   AuditLog[]
   importLogs  ImportLog[]
   snapshots   DashboardSnapshot[]
+  loginLogs   LoginLog[]
 
   @@map("users")
 }
@@ -156,4 +157,18 @@ model DashboardSnapshot {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("dashboard_snapshots")
+}
+
+model LoginLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?     @map("user_id")
+  user        User?    @relation(fields: [userId], references: [id])
+  displayName String   @map("display_name")
+  success     Boolean
+  ip          String   @default("")
+  userAgent   String   @default("") @map("user_agent")
+  reason      String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("login_logs")
 }

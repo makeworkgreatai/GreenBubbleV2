@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MobileAdminNav } from "@/components/mobile-admin-nav";
 
 interface AuditEntry {
   id: number;
@@ -116,8 +117,10 @@ export default function AuditPage() {
   }
 
   return (
-    <main className="max-w-[1400px] mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
+    <>
+    <MobileAdminNav />
+    <main className="max-w-[1400px] mx-auto p-4 md:p-6 min-h-screen">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-black">Audit Log</h1>
           <p className="text-sm text-gray-500">{total.toLocaleString()} total entries</p>
@@ -125,13 +128,13 @@ export default function AuditPage() {
         <div className="flex gap-2">
           <button
             onClick={handleDownloadFiltered}
-            className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm font-bold hover:bg-blue-700"
+            className="px-3 md:px-4 py-2 rounded-md bg-blue-600 text-white text-xs md:text-sm font-bold hover:bg-blue-700"
           >
             Download Filtered CSV
           </button>
           <a
             href="/"
-            className="px-4 py-2 rounded-md border text-sm font-bold hover:bg-gray-100"
+            className="px-3 md:px-4 py-2 rounded-md border text-xs md:text-sm font-bold hover:bg-gray-100"
           >
             Back to Dashboard
           </a>
@@ -139,13 +142,13 @@ export default function AuditPage() {
       </div>
 
       {/* Filters */}
-      <form onSubmit={handleSearch} className="grid grid-cols-6 gap-3 mb-4">
+      <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4">
         <input
           type="text"
           placeholder="Search..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="col-span-2 h-9 rounded-md border px-3 text-sm"
+          className="md:col-span-2 h-9 rounded-md border px-3 text-sm"
         />
         <input
           type="text"
@@ -168,34 +171,34 @@ export default function AuditPage() {
           onChange={(e) => setLocationFilter(e.target.value)}
           className="h-9 rounded-md border px-3 text-sm"
         />
-        <button type="submit" className="h-9 rounded-md bg-black text-white text-sm font-bold hover:bg-gray-800">
+        <button type="submit" className="h-9 rounded-md bg-black text-white text-xs md:text-sm font-bold hover:bg-gray-800">
           Search
         </button>
         <input
           type="date"
           value={dateFrom}
           onChange={(e) => setDateFrom(e.target.value)}
-          className="col-span-2 h-9 rounded-md border px-3 text-sm"
+          className="md:col-span-2 h-9 rounded-md border px-3 text-sm"
           placeholder="From date"
         />
         <input
           type="date"
           value={dateTo}
           onChange={(e) => setDateTo(e.target.value)}
-          className="col-span-2 h-9 rounded-md border px-3 text-sm"
+          className="md:col-span-2 h-9 rounded-md border px-3 text-sm"
           placeholder="To date"
         />
         <button
           type="button"
           onClick={() => { setSearch(""); setFieldFilter(""); setUserFilter(""); setLocationFilter(""); setDateFrom(""); setDateTo(""); }}
-          className="col-span-2 h-9 rounded-md border text-sm font-bold hover:bg-gray-100"
+          className="md:col-span-2 h-9 rounded-md border text-xs md:text-sm font-bold hover:bg-gray-100"
         >
           Clear Filters
         </button>
       </form>
 
-      {/* Table */}
-      <div className="border rounded-lg overflow-auto max-h-[calc(100vh-280px)]">
+      {/* Desktop Table */}
+      <div className="hidden md:block border rounded-lg overflow-auto max-h-[calc(100vh-280px)]">
         <table className="w-full text-sm">
           <thead className="bg-gray-100 sticky top-0">
             <tr className="text-left">
@@ -248,26 +251,73 @@ export default function AuditPage() {
         </table>
       </div>
 
+      {/* Mobile Card View */}
+      <div className="md:hidden space-y-3">
+        {loading ? (
+          <div className="px-3 py-8 text-center text-gray-500">Loading...</div>
+        ) : logs.length === 0 ? (
+          <div className="px-3 py-8 text-center text-gray-500">No entries found</div>
+        ) : (
+          logs.map((log) => (
+            <div key={log.id} className="border rounded-lg p-3 space-y-2 bg-white">
+              <div className="flex items-center justify-between gap-2">
+                <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
+                  log.field.startsWith("delete") ? "bg-red-100 text-red-700" :
+                  log.field.startsWith("add") ? "bg-green-100 text-green-700" :
+                  log.field.startsWith("edit") ? "bg-blue-100 text-blue-700" :
+                  log.field.includes("reset") || log.field.includes("restore") ? "bg-amber-100 text-amber-700" :
+                  "bg-gray-100 text-gray-700"
+                }`}>
+                  {fieldLabel(log.field)}
+                </span>
+                {log.locationId != null && (
+                  <span className="text-xs text-gray-500">Loc #{log.locationId}</span>
+                )}
+              </div>
+              <div className="text-xs text-gray-500">
+                {new Date(log.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" })}
+                {" — "}
+                <span className="font-medium text-gray-700">{log.user?.displayName || "System"}</span>
+              </div>
+              {(log.oldValue || log.newValue) && (
+                <div className="text-xs space-y-1">
+                  {log.oldValue && (
+                    <div className="text-gray-500"><span className="font-semibold">Old:</span> {log.oldValue}</div>
+                  )}
+                  {log.newValue && (
+                    <div className="text-gray-700"><span className="font-semibold">New:</span> {log.newValue}</div>
+                  )}
+                </div>
+              )}
+              {log.reason && (
+                <div className="text-xs text-gray-500"><span className="font-semibold">Reason:</span> {log.reason}</div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
       {/* Pagination */}
       {pages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-4">
           <button
             onClick={() => fetchLogs(page - 1)}
             disabled={page <= 1}
-            className="px-3 py-1 rounded-md border text-sm font-bold hover:bg-gray-100 disabled:opacity-40"
+            className="px-3 py-1 rounded-md border text-xs md:text-sm font-bold hover:bg-gray-100 disabled:opacity-40"
           >
             Prev
           </button>
-          <span className="text-sm">Page {page} of {pages}</span>
+          <span className="text-xs md:text-sm">Page {page} of {pages}</span>
           <button
             onClick={() => fetchLogs(page + 1)}
             disabled={page >= pages}
-            className="px-3 py-1 rounded-md border text-sm font-bold hover:bg-gray-100 disabled:opacity-40"
+            className="px-3 py-1 rounded-md border text-xs md:text-sm font-bold hover:bg-gray-100 disabled:opacity-40"
           >
             Next
           </button>
         </div>
       )}
     </main>
+    </>
   );
 }

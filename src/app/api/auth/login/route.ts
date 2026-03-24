@@ -2,10 +2,32 @@ import { NextResponse } from "next/server";
 import { compare } from "bcryptjs";
 import { db } from "@/lib/db";
 import { setSessionCookie } from "@/lib/auth";
+import { headers } from "next/headers";
+
+function getClientInfo(req: Request) {
+  const hdrs = Object.fromEntries(new Headers(req.headers));
+  const ip = hdrs["x-forwarded-for"]?.split(",")[0]?.trim() || hdrs["x-real-ip"] || "unknown";
+  const userAgent = hdrs["user-agent"] || "";
+  return { ip, userAgent };
+}
+
+async function logLogin(data: { userId?: number; displayName: string; success: boolean; ip: string; userAgent: string; reason?: string }) {
+  await db.loginLog.create({
+    data: {
+      userId: data.userId || null,
+      displayName: data.displayName,
+      success: data.success,
+      ip: data.ip,
+      userAgent: data.userAgent,
+      reason: data.reason || null,
+    },
+  });
+}
 
 export async function POST(req: Request) {
   const body = await req.json();
   const { displayName, pin } = body;
+  const client = getClientInfo(req);
 
   if (!displayName || !pin) {
     return NextResponse.json(
@@ -25,9 +47,7 @@ export async function POST(req: Request) {
 
   if (namedUser) {
     if (namedUser.expiresAt && namedUser.expiresAt < new Date()) {
-      await db.auditLog.create({
-        data: { field: "login", newValue: "failed", reason: "PIN expired", userId: namedUser.id },
-      });
+      await logLogin({ userId: namedUser.id, displayName, success: false, ...client, reason: "PIN expired" });
       return NextResponse.json(
         { error: "PIN has expired. Contact an administrator." },
         { status: 401 }
@@ -42,9 +62,7 @@ export async function POST(req: Request) {
         role: namedUser.role,
         zoneId: namedUser.zoneId,
       });
-      await db.auditLog.create({
-        data: { field: "login", newValue: "success", userId: namedUser.id },
-      });
+      await logLogin({ userId: namedUser.id, displayName: namedUser.displayName, success: true, ...client });
       return NextResponse.json({
         user: {
           id: namedUser.id,
@@ -55,11 +73,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // Name belongs to a named user but PIN was wrong — block completely
-    // Prevents impersonation via shared/open PINs
-    await db.auditLog.create({
-      data: { field: "login", newValue: "failed", reason: "Wrong PIN for named user", userId: namedUser.id },
-    });
+    await logLogin({ userId: namedUser.id, displayName, success: false, ...client, reason: "Wrong PIN" });
     return NextResponse.json(
       { error: "Invalid name or PIN" },
       { status: 401 }
@@ -82,14 +96,7 @@ export async function POST(req: Request) {
         role: user.role,
         zoneId: user.zoneId,
       });
-      await db.auditLog.create({
-        data: {
-          field: "login",
-          newValue: "success",
-          userId: user.id,
-          reason: `${user.pinMode} PIN login as: ${displayName}`,
-        },
-      });
+      await logLogin({ userId: user.id, displayName, success: true, ...client, reason: `${user.pinMode} PIN` });
       return NextResponse.json({
         user: {
           id: user.id,
@@ -102,9 +109,7 @@ export async function POST(req: Request) {
   }
 
   // 3. Nothing matched
-  await db.auditLog.create({
-    data: { field: "login", newValue: "failed", reason: `Failed login: ${displayName}` },
-  });
+  await logLogin({ displayName, success: false, ...client, reason: "No matching user/PIN" });
 
   return NextResponse.json(
     { error: "Invalid name or PIN" },

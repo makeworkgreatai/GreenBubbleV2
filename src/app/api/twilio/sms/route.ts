@@ -148,13 +148,16 @@ async function handleMessage(body: string, from: string): Promise<string> {
       },
     });
 
+    const smsLabel = from.replace(/\D/g, "").slice(-10);
+    const smsName = smsLabel.length === 10 ? `SMS (${smsLabel.slice(0,3)}) ${smsLabel.slice(3,6)}-${smsLabel.slice(6)}` : `SMS ${from}`;
+
     broadcast({
       type: "status_update",
       locationId: location.id,
       milestoneId: milestone.id,
       value: newValue,
       updatedAt: updated.updatedAt.toISOString(),
-      updatedByUser: updated.updatedByUser,
+      updatedByUser: { displayName: smsName },
     });
 
     results.push(`${milestone.label}: ${newValue ? "GREEN" : "RED"}`);

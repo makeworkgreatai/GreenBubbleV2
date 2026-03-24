@@ -418,8 +418,10 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
     return () => clearInterval(t);
   }, []);
 
-  // Keep ref in sync for SSE callback
+  // Keep refs in sync for SSE callback
   useEffect(() => { editModeRef.current = editMode; }, [editMode]);
+  const milestonesRef = useRef(milestones);
+  useEffect(() => { milestonesRef.current = milestones; }, [milestones]);
 
   // Real-time updates via Server-Sent Events
   useEffect(() => {
@@ -446,10 +448,10 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
             setLocations((prev) => {
               const loc = prev.find((l) => l.id === event.locationId);
               if (loc) {
-                const ms = milestones.find((m) => m.id === event.milestoneId);
+                const ms = milestonesRef.current.find((m) => m.id === event.milestoneId);
                 const who = event.updatedByUser?.displayName || "SMS";
-                const status = event.value ? "GREEN" : "RED";
-                setLastActivity({ text: `${loc.name} — ${ms?.label || "?"} → ${status} by ${who}`, time: new Date() });
+                const dot = event.value ? "🟢" : "🔴";
+                setLastActivity({ text: `${loc.name} — ${ms?.label || "?"} ${dot} by ${who}`, time: new Date() });
               }
               return prev.map((l) => {
                 if (l.id !== event.locationId) return l;
@@ -603,8 +605,8 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
     const loc = locations.find((l) => l.id === locationId);
     const ms = milestones.find((m) => m.id === milestoneId);
     if (loc && ms) {
-      const status = updated.value ? "GREEN" : "RED";
-      setLastActivity({ text: `${loc.name} — ${ms.label} → ${status} by ${session.displayName}`, time: new Date() });
+      const dot = updated.value ? "🟢" : "🔴";
+      setLastActivity({ text: `${loc.name} — ${ms.label} ${dot} by ${session.displayName}`, time: new Date() });
     }
 
     setLocations((prev) =>
@@ -960,6 +962,7 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
             <a href="/admin/pins" className="h-6 px-2 rounded border border-purple-300 bg-purple-500/40 text-xs font-bold hover:bg-purple-500/60 flex items-center">Account Management</a>
             <a href="/admin/cells" className="h-6 px-2 rounded border border-pink-300 bg-pink-500/40 text-xs font-bold hover:bg-pink-500/60 flex items-center">Cell Management</a>
             <a href="/admin/import" className="h-6 px-2 rounded border border-teal-300 bg-teal-500/40 text-xs font-bold hover:bg-teal-500/60 flex items-center">Import Data</a>
+            <a href="/admin/logins" className="h-6 px-2 rounded border border-orange-300 bg-orange-500/40 text-xs font-bold hover:bg-orange-500/60 flex items-center">Login Activity</a>
             <SaveAuditButton />
             <RestoreButton onRestored={fetchData} />
             <ClearElectionButton onReset={() => {
@@ -1009,12 +1012,13 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
         </div>
       </div>
       {/* Header */}
-      <div className="relative flex items-center justify-between px-4 py-2">
-        <img src="/boe-logo.png" alt="Cuyahoga County Board of Elections" className="h-12 brightness-0 invert drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
+      <div className="relative flex items-center justify-between px-3 md:px-4 py-2">
+        <img src="/boe-logo.png" alt="Cuyahoga County Board of Elections" className="h-8 md:h-12 brightness-0 invert drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]" />
         <div className="flex flex-col items-end gap-1">
-          <div className="text-sm font-bold flex items-center gap-2">
-            {session.displayName} <span className="text-yellow-200">{session.role.replace(/_/g, " ")}{session.zoneId ? ` · Zone ${session.zoneId}` : ""}</span>
-            <span className={`inline-block w-2 h-2 rounded-full ${liveConnected ? "bg-green-300 animate-pulse" : "bg-red-400"}`} title={liveConnected ? "Live — updates in real-time" : "Reconnecting..."} />
+          <div className="text-xs md:text-sm font-bold flex items-center gap-1 md:gap-2">
+            <span className="truncate max-w-[120px] md:max-w-none">{session.displayName}</span>
+            <span className="text-yellow-200 hidden md:inline">{session.role.replace(/_/g, " ")}{session.zoneId ? ` · Zone ${session.zoneId}` : ""}</span>
+            <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${liveConnected ? "bg-green-300 animate-pulse" : "bg-red-400"}`} title={liveConnected ? "Live" : "Reconnecting..."} />
           </div>
           <div className="flex items-center gap-2">
             <button
