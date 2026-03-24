@@ -49,8 +49,8 @@ export default function LoginPage() {
       </div>
 
       {/* Login form */}
-      <div className="flex-1 flex items-center justify-center p-4 -mt-8">
-        <div className="w-full max-w-sm bg-white rounded-xl shadow-2xl border p-6 space-y-5">
+      <div className="flex-1 flex items-start md:items-center justify-center p-4 pt-6 md:-mt-8">
+        <div className="w-full max-w-sm md:max-w-md bg-white rounded-xl shadow-2xl border p-6 space-y-5">
           <div className="text-center">
             <h2 className="text-xl font-black">Sign In</h2>
             <p className="text-sm text-gray-500 mt-1">Enter your username and PIN</p>
