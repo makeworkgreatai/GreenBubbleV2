@@ -14,7 +14,8 @@ export interface SessionPayload {
 }
 
 export function createToken(payload: SessionPayload): string {
-  return sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRY as string | number });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRY } as any);
 }
 
 export function verifyToken(token: string): SessionPayload | null {
