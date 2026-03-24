@@ -10,7 +10,7 @@ export async function GET() {
     // Push schema to database
     execSync("npx prisma db push --skip-generate", {
       cwd: process.cwd(),
-      env: process.env as Record<string, string>,
+      env: process.env as NodeJS.ProcessEnv,
       stdio: "pipe",
     });
 
