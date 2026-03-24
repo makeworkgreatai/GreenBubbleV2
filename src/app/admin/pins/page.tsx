@@ -228,7 +228,6 @@ export default function AccountManagementPage() {
             {importing ? "Importing..." : "Import Logins"}
           </button>
           <input ref={loginFileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleImportLogins} />
-          <button onClick={() => downloadTemplate("election")} className="px-3 py-2 rounded-md border text-xs font-bold hover:bg-gray-100">Election Template</button>
           <button onClick={handleExpireAll} className="px-3 py-2 rounded-md border border-red-300 text-red-600 text-xs font-bold hover:bg-red-50">Expire All</button>
           <a href="/" className="px-3 py-2 rounded-md border text-xs font-bold hover:bg-gray-100">Dashboard</a>
         </div>

@@ -30,6 +30,28 @@ export default function ImportPage() {
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
+  function downloadTemplate(type: string) {
+    let csv = "";
+    let filename = "";
+    if (type === "election") {
+      csv = "poll_id,location_line_1,location_line_2,city,Zone\n8133,EXAMPLE SCHOOL,123 MAIN ST,CLEVELAND,1\n7470,EXAMPLE CHURCH,456 OAK AVE,SOLON,3\n";
+      filename = "election-locations-template.csv";
+    } else if (type === "logins") {
+      csv = "Username,Password,Role\njsmith,1234,Manager\njdoe,5678,Zone Captains\noperator1,0000,Phone Operator\n";
+      filename = "login-accounts-template.csv";
+    } else if (type === "sms") {
+      csv = "poll_id,phone\n8133,2165551234\n7470,2165555678\n";
+      filename = "sms-phones-template.csv";
+    }
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function handleFiles(fileList: FileList | null) {
     if (!fileList) return;
     setFiles(Array.from(fileList));
@@ -189,8 +211,24 @@ export default function ImportPage() {
         </div>
       )}
 
-      {/* Help */}
+      {/* Templates */}
       <div className="mt-8 rounded-lg border bg-gray-50 p-4">
+        <h3 className="font-bold text-sm mb-3">Download Templates</h3>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => downloadTemplate("election")} className="px-3 py-2 rounded-md border bg-white text-xs font-bold hover:bg-gray-100">
+            Election Locations Template
+          </button>
+          <button onClick={() => downloadTemplate("logins")} className="px-3 py-2 rounded-md border bg-white text-xs font-bold hover:bg-gray-100">
+            Login Accounts Template
+          </button>
+          <button onClick={() => downloadTemplate("sms")} className="px-3 py-2 rounded-md border bg-white text-xs font-bold hover:bg-gray-100">
+            SMS Phones Template
+          </button>
+        </div>
+      </div>
+
+      {/* Help */}
+      <div className="mt-4 rounded-lg border bg-gray-50 p-4">
         <h3 className="font-bold text-sm mb-2">Supported Files</h3>
         <div className="text-sm text-gray-700 space-y-1 break-words">
           <div><span className="font-bold text-blue-700">Polls_Elec.csv</span> — Locations with lat/lng, city, and precincts</div>
@@ -198,9 +236,10 @@ export default function ImportPage() {
           <div><span className="font-bold text-emerald-700">VLM Phone List</span> (.csv or .xlsx) — Locations + contacts + all phones in one file</div>
           <div><span className="font-bold text-indigo-700">Precincts_List.csv</span> — Detailed precinct-to-location mapping</div>
           <div><span className="font-bold text-pink-700">SMS Phones</span> (.csv) — Assign cell phones to locations (columns: poll_id, phone)</div>
-          <div><span className="font-bold text-purple-700">Legacy Logins Sheet</span> (.csv or .xlsx) — Username/password migration</div>
+          <div><span className="font-bold text-purple-700">Login Accounts</span> (.csv or .xlsx) — Username, Password, Role</div>
         </div>
         <p className="text-xs text-gray-500 mt-3">Files are auto-detected by their column headers and processed in the right order. Duplicates are skipped or updated.</p>
+        <p className="text-xs text-gray-500 mt-1"><span className="font-bold">Available roles for login CSV:</span> Manager (→ Supervisor), Admin, Zone Captains, Phone Operator, Viewer</p>
       </div>
     </main>
     </>
