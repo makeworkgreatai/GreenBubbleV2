@@ -10,12 +10,14 @@ function generatePin(): string {
 
 export const POST = withRole("SUPERVISOR", async (req, { session }) => {
   const body = await req.json();
-  const { role, count, zoneId, expiresAt, pinMode } = body as {
+  const { role, count, zoneId, expiresAt, pinMode, displayName: customName, password } = body as {
     role: Role;
     count: number;
     zoneId?: number;
     expiresAt?: string;
     pinMode?: string;
+    displayName?: string;
+    password?: string;
   };
 
   const mode = pinMode || "named";
@@ -48,9 +50,9 @@ export const POST = withRole("SUPERVISOR", async (req, { session }) => {
   const users = [];
 
   for (let i = 0; i < effectiveCount; i++) {
-    const pin = generatePin();
+    const pin = password || generatePin();
     const pinHash = await hash(pin, 10);
-    const displayName = `${mode} ${role.replace("_", " ")} ${Date.now()}-${i}`;
+    const displayName = customName || `${mode} ${role.replace("_", " ")} ${Date.now()}-${i}`;
 
     users.push({
       displayName,

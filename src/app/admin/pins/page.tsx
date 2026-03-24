@@ -138,6 +138,66 @@ export default function AccountManagementPage() {
     finally { setImporting(false); e.target.value = ""; }
   }
 
+  const roleFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  async function handleRoleUpload(role: string, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter((l) => l.trim());
+      if (lines.length < 2) { alert("CSV has no data rows"); return; }
+
+      // Parse CSV — expect: username (required), password (optional)
+      const header = lines[0].toLowerCase();
+      const hasPassword = header.includes("password");
+      const rows = lines.slice(1);
+
+      let created = 0;
+      for (const row of rows) {
+        const cols = row.split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+        const username = cols[0];
+        const password = hasPassword ? cols[1] : "";
+        if (!username) continue;
+
+        const res = await fetch("/api/admin/pins/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            role,
+            count: 1,
+            pinMode: "named",
+            displayName: username,
+            password: password || undefined,
+          }),
+        });
+        if (res.ok) created++;
+      }
+      alert(`${created} ${role.replace(/_/g, " ").toLowerCase()} accounts created`);
+      fetchUsers();
+    } catch { alert("Import failed"); }
+    finally { setImporting(false); e.target.value = ""; }
+  }
+
+  function downloadTemplate(type: string) {
+    let csv = "";
+    if (type === "users") {
+      csv = "username,password\njsmith,\njdoe,\n";
+    } else if (type === "users-pw") {
+      csv = "username,password\njsmith,mypin123\njdoe,secret456\n";
+    } else if (type === "election") {
+      csv = "poll_id,location_line_1,location_line_2,city,Zone\n8133,EXAMPLE SCHOOL,123 MAIN ST,CLEVELAND,1\n";
+    }
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${type}-template.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleDeleteUser(user: UserAccount) {
     if (!confirm(`Delete "${user.displayName}"?`)) return;
     await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
@@ -168,6 +228,7 @@ export default function AccountManagementPage() {
             {importing ? "Importing..." : "Import Logins"}
           </button>
           <input ref={loginFileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleImportLogins} />
+          <button onClick={() => downloadTemplate("election")} className="px-3 py-2 rounded-md border text-xs font-bold hover:bg-gray-100">Election Template</button>
           <button onClick={handleExpireAll} className="px-3 py-2 rounded-md border border-red-300 text-red-600 text-xs font-bold hover:bg-red-50">Expire All</button>
           <a href="/" className="px-3 py-2 rounded-md border text-xs font-bold hover:bg-gray-100">Dashboard</a>
         </div>
@@ -253,6 +314,30 @@ export default function AccountManagementPage() {
                   </div>
                 </div>
               )}
+
+              {/* Upload users for this role */}
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <button
+                  onClick={() => roleFileRefs.current[role.value]?.click()}
+                  disabled={importing}
+                  className="px-3 py-1.5 rounded-md border text-xs font-bold hover:bg-white/50 disabled:opacity-50"
+                >
+                  Upload Users CSV
+                </button>
+                <input
+                  ref={(el) => { roleFileRefs.current[role.value] = el; }}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={(e) => handleRoleUpload(role.value, e)}
+                />
+                <button
+                  onClick={() => downloadTemplate("users")}
+                  className="px-3 py-1.5 rounded-md text-xs font-bold text-gray-500 hover:text-gray-700 hover:underline"
+                >
+                  Download Template
+                </button>
+              </div>
 
               {/* Individual/imported users */}
               {uniqueUsers.length > 0 && (
