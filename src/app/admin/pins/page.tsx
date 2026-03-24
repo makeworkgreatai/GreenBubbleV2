@@ -138,6 +138,28 @@ export default function AccountManagementPage() {
     finally { setImporting(false); e.target.value = ""; }
   }
 
+  const [addingUser, setAddingUser] = useState<{ role: string; name: string } | null>(null);
+
+  async function handleAddUser() {
+    if (!addingUser || !addingUser.name.trim()) return;
+    const res = await fetch("/api/admin/pins/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        role: addingUser.role,
+        count: 1,
+        pinMode: "named",
+        displayName: addingUser.name.trim(),
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setNewPin({ role: addingUser.role, pin: data.pins[0].pin });
+    }
+    setAddingUser(null);
+    fetchUsers();
+  }
+
   const roleFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   async function handleRoleUpload(role: string, e: React.ChangeEvent<HTMLInputElement>) {
@@ -314,14 +336,35 @@ export default function AccountManagementPage() {
                 </div>
               )}
 
-              {/* Upload users for this role */}
+              {/* Add user + upload for this role */}
               <div className="flex flex-wrap items-center gap-2 mb-3">
+                {addingUser?.role === role.value ? (
+                  <div className="flex gap-1">
+                    <input
+                      value={addingUser.name}
+                      onChange={(e) => setAddingUser({ ...addingUser, name: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleAddUser(); if (e.key === "Escape") setAddingUser(null); }}
+                      placeholder="Username"
+                      autoFocus
+                      className="h-8 w-40 rounded-md border px-2 text-sm"
+                    />
+                    <button onClick={handleAddUser} className="px-3 py-1.5 rounded-md bg-green-600 text-white text-xs font-bold hover:bg-green-700">Add</button>
+                    <button onClick={() => setAddingUser(null)} className="px-2 py-1.5 rounded-md border text-xs font-bold hover:bg-gray-100">Cancel</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAddingUser({ role: role.value, name: "" })}
+                    className="px-3 py-1.5 rounded-md bg-gray-900 text-white text-xs font-bold hover:bg-gray-800"
+                  >
+                    + Add User
+                  </button>
+                )}
                 <button
                   onClick={() => roleFileRefs.current[role.value]?.click()}
                   disabled={importing}
                   className="px-3 py-1.5 rounded-md border text-xs font-bold hover:bg-white/50 disabled:opacity-50"
                 >
-                  Upload Users CSV
+                  Upload CSV
                 </button>
                 <input
                   ref={(el) => { roleFileRefs.current[role.value] = el; }}

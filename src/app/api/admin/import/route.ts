@@ -41,6 +41,7 @@ export const POST = withRole("ADMIN", async (req, { session }) => {
   }
 
   const files = formData.getAll("files") as File[];
+  const defaultRole = (formData.get("defaultRole") as string) || "";
 
   if (files.length === 0) {
     return NextResponse.json({ error: "No files provided" }, { status: 400 });
@@ -94,7 +95,7 @@ export const POST = withRole("ADMIN", async (req, { session }) => {
     } else if (entry.type === "sms_phones") {
       result = await importSmsPhones(entry.rows);
     } else if (entry.type === "accounts") {
-      result = await importAccounts(entry.rows);
+      result = await importAccounts(entry.rows, defaultRole);
     } else {
       result = { created: 0, updated: 0, skipped: entry.rows.length, errors: [`Could not detect file type from headers`] };
     }
@@ -517,37 +518,43 @@ async function importSmsPhones(rows: Record<string, string>[]) {
 
 // --- Account Import (Legacy logins) ---
 
-async function importAccounts(rows: Record<string, string>[]) {
+async function importAccounts(rows: Record<string, string>[], overrideRole?: string) {
   const { hash } = await import("bcryptjs");
   const result = { created: 0, updated: 0, skipped: 0, errors: [] as string[] };
 
   const roleMap: Record<string, string> = {
     manager: "SUPERVISOR", admin: "ADMIN", supervisor: "SUPERVISOR",
-    captain: "ZONE_CAPTAIN", "zone captain": "ZONE_CAPTAIN",
+    captain: "ZONE_CAPTAIN", "zone captain": "ZONE_CAPTAIN", "zone captains": "ZONE_CAPTAIN",
     operator: "PHONE_OPERATOR", "phone operator": "PHONE_OPERATOR",
     viewer: "VIEWER",
   };
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    const username = row["username"] || "";
-    const password = row["password"] || "";
+    const username = row["username"] || row["name"] || "";
+    const password = row["password"] || row["pin"] || "";
     const roleRaw = (row["role"] || "").toLowerCase();
 
-    if (!username || !password) { result.skipped++; continue; }
+    if (!username) { result.skipped++; continue; }
 
-    const role = roleMap[roleRaw];
+    // Use override role from dropdown, or CSV role, or skip
+    let role = overrideRole || "";
+    if (!role && roleRaw) role = roleMap[roleRaw] || "";
     if (!role) {
-      result.errors.push(`Row ${i + 2}: Unknown role "${roleRaw}" for ${username}`);
+      result.errors.push(`Row ${i + 2}: No role for ${username} — select a default role`);
       result.skipped++;
       continue;
+    }
+    if (roleRaw && !overrideRole) {
+      role = roleMap[roleRaw] || role;
     }
 
     try {
       const existing = await db.user.findFirst({ where: { displayName: username } });
       if (existing) { result.skipped++; continue; }
 
-      const pinHash = await hash(password, 10);
+      const pin = password || String(Math.floor(1000 + Math.random() * 9000));
+      const pinHash = await hash(pin, 10);
       await db.user.create({
         data: {
           displayName: username,

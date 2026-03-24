@@ -28,6 +28,7 @@ export default function ImportPage() {
   const [results, setResults] = useState<FileResult[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [defaultRole, setDefaultRole] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   function downloadTemplate(type: string) {
@@ -73,6 +74,7 @@ export default function ImportPage() {
     try {
       const formData = new FormData();
       files.forEach((f) => formData.append("files", f));
+      if (defaultRole) formData.append("defaultRole", defaultRole);
 
       const res = await fetch("/api/admin/import", { method: "POST", body: formData });
       const data = await res.json();
@@ -141,6 +143,16 @@ export default function ImportPage() {
               <button onClick={() => removeFile(i)} className="text-xs text-red-500 hover:text-red-700 font-bold shrink-0">Remove</button>
             </div>
           ))}
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-purple-50 border border-purple-200">
+            <span className="text-xs font-bold text-purple-700 shrink-0">Default role for login imports:</span>
+            <select value={defaultRole} onChange={(e) => setDefaultRole(e.target.value)} className="h-8 flex-1 rounded-md border px-2 text-xs font-bold">
+              <option value="">Use role from CSV</option>
+              <option value="SUPERVISOR">Supervisor</option>
+              <option value="ZONE_CAPTAIN">Zone Captain</option>
+              <option value="PHONE_OPERATOR">Phone Operator</option>
+              <option value="VIEWER">Viewer</option>
+            </select>
+          </div>
           <button
             onClick={handleImport}
             disabled={loading}
