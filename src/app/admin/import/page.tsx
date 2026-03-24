@@ -35,11 +35,14 @@ export default function ImportPage() {
     let csv = "";
     let filename = "";
     if (type === "election") {
-      csv = "poll_id,location_line_1,location_line_2,city,Zone\n8133,EXAMPLE SCHOOL,123 MAIN ST,CLEVELAND,1\n7470,EXAMPLE CHURCH,456 OAK AVE,SOLON,3\n";
-      filename = "election-locations-template.csv";
+      csv = "POLL CODE,ZONE,POLL_NAME,POLL_ADDR1,POLL_ADDR3,VLM,VLM CELL PHONE,BOE CELL PHONE,LANDLINE,IS PHONE NUMBER\n8133,1,EXAMPLE SCHOOL,123 MAIN ST,CLEVELAND,JOHN SMITH,2165551234,(216) 555-5678,,(216) 555-5678\n7470,3,EXAMPLE CHURCH,456 OAK AVE,SOLON,JANE DOE,4405559876,(216) 555-4321,,(216) 555-4321\n";
+      filename = "election-template.csv";
     } else if (type === "logins") {
       csv = "Username,Password,Role\njsmith,1234,Manager\njdoe,5678,Zone Captains\noperator1,0000,Phone Operator\n";
       filename = "login-accounts-template.csv";
+    } else if (type === "precincts") {
+      csv = "Poll_id,precinct_id,Municipal,Label\n8133,1001,CLEVELAND,1A\n8133,1002,CLEVELAND,1B\n7470,2001,SOLON,5A\n";
+      filename = "precincts-template.csv";
     } else if (type === "sms") {
       csv = "poll_id,phone\n8133,2165551234\n7470,2165555678\n";
       filename = "sms-phones-template.csv";
@@ -229,6 +232,9 @@ export default function ImportPage() {
         <div className="flex flex-wrap gap-2">
           <button onClick={() => downloadTemplate("election")} className="px-3 py-2 rounded-md border bg-white text-xs font-bold hover:bg-gray-100">
             Election Locations Template
+          </button>
+          <button onClick={() => downloadTemplate("precincts")} className="px-3 py-2 rounded-md border bg-white text-xs font-bold hover:bg-gray-100">
+            Precincts Template
           </button>
           <button onClick={() => downloadTemplate("logins")} className="px-3 py-2 rounded-md border bg-white text-xs font-bold hover:bg-gray-100">
             Login Accounts Template
