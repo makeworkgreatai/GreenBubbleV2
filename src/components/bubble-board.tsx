@@ -993,7 +993,7 @@ function StatusBubble({
       >
         {done ? "✓" : code}
       </button>
-      {showTooltip && (
+      {showTooltip && updatedBy && (
         <div className={`absolute bottom-full mb-2 z-50 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-semibold shadow-lg pointer-events-none text-white ${done ? "bg-green-700" : "bg-red-600"} ${alignRight ? "right-0" : "left-1/2 -translate-x-1/2"}`}>
           {tooltipText}
           <div className={`absolute top-full border-4 border-transparent ${done ? "border-t-green-700" : "border-t-red-600"} ${alignRight ? "right-3" : "left-1/2 -translate-x-1/2"}`} />
