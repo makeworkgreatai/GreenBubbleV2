@@ -408,9 +408,9 @@ export function BubbleBoard({
                 onClick={() => onSort("contact")}
                 className="relative text-left py-3 px-3 text-sm whitespace-nowrap align-top bg-fuchsia-300 cursor-pointer hover:bg-fuchsia-400 hover:text-white select-none"
               >
-                <span className="font-bold">Contact</span> <SortArrow col="contact" sortCol={sortCol} sortDir={sortDir} />
+                <span className="font-bold">VLM Contact</span> <SortArrow col="contact" sortCol={sortCol} sortDir={sortDir} />
                 <span className="block text-xs font-normal text-black">Number</span>
-                <EyeButton label="Contact" show={showContact} onToggle={() => setShowContact(false)} />
+                <EyeButton label="VLM Contact" show={showContact} onToggle={() => setShowContact(false)} />
               </th>
             ) : (
               <th className="bg-fuchsia-300 w-6 cursor-pointer hover:bg-fuchsia-400" onClick={() => setShowContact(true)} title="Show Contact">
