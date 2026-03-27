@@ -304,7 +304,7 @@ export function BubbleBoard({
     : locations;
 
   return (
-    <div className={nightMode ? "night-mode" : ""}>
+    <div className={`flex-1 flex flex-col min-h-0 ${nightMode ? "night-mode" : ""}`}>
       {/* Mobile card view */}
       <div className="md:hidden flex flex-col h-[calc(100dvh-90px)]">
         <div className="px-3 py-2 border-b bg-gray-50">
@@ -341,7 +341,7 @@ export function BubbleBoard({
         </div>
       </div>
       {/* Desktop table view */}
-      <div className={`hidden md:block overflow-auto max-h-[calc(100dvh-90px)] border-t-4 ${editMode ? "border-yellow-400" : "border-gray-400"}`}>
+      <div className={`hidden md:block overflow-auto flex-1 border-t-4 ${editMode ? "border-yellow-400" : "border-gray-400"}`}>
       <table className="w-full border-collapse [&_th]:border-r [&_th]:border-black/50 [&_td]:border-r [&_td]:border-black/50 [&_th:last-child]:border-r-0 [&_td:last-child]:border-r-0 [&_th]:shadow-[inset_0_3px_1px_rgba(255,255,255,0.5),inset_0_-3px_1px_rgba(0,0,0,0.2)]">
         <thead className="sticky -top-px z-10 shadow-[0_3px_6px_rgba(0,0,0,0.2)] will-change-transform [transform:translateZ(0)]">
           {/* Column headers */}

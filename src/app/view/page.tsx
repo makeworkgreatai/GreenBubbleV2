@@ -142,7 +142,7 @@ export default function PublicViewPage() {
   }
 
   return (
-    <main className="pt-0 pb-0 space-y-0 h-screen overflow-hidden">
+    <main className="pt-0 pb-0 space-y-0 h-screen overflow-hidden flex flex-col">
       {/* Activity bar */}
       <a href="/changelog" className="flex items-center justify-between px-4 py-1 bg-gray-800 text-gray-300 text-xs font-medium hover:bg-gray-700 cursor-pointer">
         <div className="flex items-center gap-2">

@@ -916,7 +916,7 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
   }
 
   return (
-    <main className={`pt-0 pb-0 space-y-0 h-screen overflow-hidden ${nightMode ? "bg-[#141414]" : ""}`}>
+    <main className={`pt-0 pb-0 space-y-0 h-screen overflow-hidden flex flex-col ${nightMode ? "bg-[#141414]" : ""}`}>
       {/* Admin toolbar — desktop */}
       {session.role === "ADMIN" && (
         <div className="hidden md:block">
