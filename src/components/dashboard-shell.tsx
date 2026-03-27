@@ -918,7 +918,7 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
   return (
     <main className={`pt-0 pb-0 space-y-0 h-screen overflow-hidden flex flex-col ${nightMode ? "bg-[#141414]" : ""}`}>
       {/* Admin toolbar — desktop */}
-      {session.role === "ADMIN" && (
+      {(session.role === "ADMIN" || session.role === "SUPERVISOR") && (
         <div className="hidden md:block">
           <AuditCacheBar>
             {canEditDashboard && !editMode && (
@@ -978,7 +978,7 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
         </div>
       )}
       {/* Admin hamburger — mobile */}
-      {session.role === "ADMIN" && (
+      {(session.role === "ADMIN" || session.role === "SUPERVISOR") && (
         <div className="md:hidden">
           <div className="flex items-center justify-between px-3 py-1 bg-gray-900 text-gray-300 text-xs font-medium">
             <span className="text-gray-400">Admin</span>
