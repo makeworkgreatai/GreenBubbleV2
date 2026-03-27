@@ -46,6 +46,19 @@ export const POST = withRole("SUPERVISOR", async (req, { session }) => {
     );
   }
 
+  // Check for duplicate name
+  if (customName) {
+    const existing = await db.user.findFirst({
+      where: { displayName: { equals: customName, mode: "insensitive" } },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { error: `User "${customName}" already exists` },
+        { status: 400 }
+      );
+    }
+  }
+
   const pins: { pin: string; displayName: string }[] = [];
   const users = [];
 
