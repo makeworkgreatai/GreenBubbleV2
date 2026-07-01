@@ -62,38 +62,30 @@ export default function AccountManagementPage() {
     return users.find((u) => u.role === role && u.pinMode === "shared" && u.active);
   }
 
-  const [pinPicker, setPinPicker] = useState<{ role: string; userId: number | null; value: string } | null>(null);
+  const [pinPicker, setPinPicker] = useState<{ role: string; value: string } | null>(null);
 
   async function handleSavePin() {
     if (!pinPicker) return;
     if (!/^\d{4,}$/.test(pinPicker.value)) { alert("PIN must be at least 4 digits"); return; }
-    if (pinPicker.userId) {
-      // Update the existing shared PIN to a specific static value
-      await fetch(`/api/admin/users/${pinPicker.userId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ field: "sharedPin", value: pinPicker.value }),
-      });
-    } else {
-      // Create the shared PIN for this role with a specific value
-      await fetch("/api/admin/pins/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: pinPicker.role, count: 1, pinMode: "shared", password: pinPicker.value }),
-      });
-    }
+    // Blanket-set the PIN for every account in this category
+    await fetch("/api/admin/pins/set-shared", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: pinPicker.role, pin: pinPicker.value }),
+    });
     setPinPicker(null);
     fetchUsers();
   }
 
-  const [expiryPicker, setExpiryPicker] = useState<{ userId: number; value: string } | null>(null);
+  const [expiryPicker, setExpiryPicker] = useState<{ role: string; value: string } | null>(null);
 
   async function handleSaveExpiry() {
     if (!expiryPicker) return;
-    await fetch(`/api/admin/users/${expiryPicker.userId}`, {
-      method: "PATCH",
+    // Blanket-set the expiry for every account in this category
+    await fetch("/api/admin/pins/set-shared", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ field: "expiresAt", value: expiryPicker.value }),
+      body: JSON.stringify({ role: expiryPicker.role, expiresAt: expiryPicker.value || null }),
     });
     setExpiryPicker(null);
     fetchUsers();
@@ -305,14 +297,14 @@ export default function AccountManagementPage() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => setPinPicker({ role: role.value, userId: shared.id, value: shared.sharedPin || "" })} className="px-3 py-1.5 rounded-md bg-gray-900 text-white text-xs font-bold hover:bg-gray-800">Set PIN</button>
-                      <button onClick={() => setExpiryPicker({ userId: shared.id, value: shared.expiresAt ? shared.expiresAt.split("T")[0] : "" })} className="px-3 py-1.5 rounded-md border text-xs font-bold hover:bg-white/50">Set Expiry</button>
+                      <button onClick={() => setPinPicker({ role: role.value, value: shared.sharedPin || "" })} className="px-3 py-1.5 rounded-md bg-gray-900 text-white text-xs font-bold hover:bg-gray-800">Set PIN</button>
+                      <button onClick={() => setExpiryPicker({ role: role.value, value: shared.expiresAt ? shared.expiresAt.split("T")[0] : "" })} className="px-3 py-1.5 rounded-md border text-xs font-bold hover:bg-white/50">Set Expiry</button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div className="text-sm text-gray-600">No shared PIN set</div>
-                    <button onClick={() => setPinPicker({ role: role.value, userId: null, value: "" })} className="px-3 py-1.5 rounded-md bg-gray-900 text-white text-xs font-bold hover:bg-gray-800 self-start">Set Shared PIN</button>
+                    <button onClick={() => setPinPicker({ role: role.value, value: "" })} className="px-3 py-1.5 rounded-md bg-gray-900 text-white text-xs font-bold hover:bg-gray-800 self-start">Set Shared PIN</button>
                   </div>
                 )}
               </div>
@@ -433,7 +425,8 @@ export default function AccountManagementPage() {
       {pinPicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setPinPicker(null)}>
           <div className="bg-white rounded-xl shadow-2xl p-6 w-80" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-black mb-3">{pinPicker.userId ? "Set Shared PIN" : "Create Shared PIN"}</h3>
+            <h3 className="text-lg font-black mb-3">Set Category PIN</h3>
+            <p className="text-xs text-gray-500 mb-3">Applies to every account in this category.</p>
             <input
               type="text"
               inputMode="numeric"
