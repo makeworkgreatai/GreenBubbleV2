@@ -115,6 +115,16 @@ export default function PublicViewPage() {
       else if (effectiveCol === "city") cmp = a.city.localeCompare(b.city);
       else if (effectiveCol === "zone") cmp = a.zone.number - b.zone.number;
       else if (effectiveCol === "pollId") cmp = (a.pollId || "").localeCompare(b.pollId || "");
+      else if (effectiveCol.startsWith("ms:")) {
+        const mid = Number(effectiveCol.slice(3));
+        const aVal = a.statuses.some((s) => s.milestoneId === mid && s.value);
+        const bVal = b.statuses.some((s) => s.milestoneId === mid && s.value);
+        if (aVal !== bVal) {
+          const groupCmp = aVal ? -1 : 1;
+          return effectiveDir === "asc" ? groupCmp : -groupCmp;
+        }
+        return a.name.localeCompare(b.name);
+      }
       return effectiveDir === "asc" ? cmp : -cmp;
     });
     return result;

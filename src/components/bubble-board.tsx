@@ -418,23 +418,22 @@ export function BubbleBoard({
               </th>
             )}
             {showMon ? (
-              monMilestones.map((m, mIdx) => {
+              monMilestones.map((m) => {
                 const idx = visibleMilestones.findIndex((vm) => vm.id === m.id);
                 const h = milestoneHeader(m.label);
                 const s = summaries.find((x) => x.milestoneId === m.id)!;
                 const pct = s.total > 0 ? Math.round((s.done / s.total) * 100) : 0;
                 const countColor = pct === 100 ? "text-green-700" : pct >= 50 ? "text-amber-700" : "text-red-700";
-                const isFirst = mIdx === 0;
                 const isLast = m.id === monMilestones[monMilestones.length - 1].id;
                 return (
                   <th
                     key={m.id}
-                    onClick={() => onSort("monDone")}
+                    onClick={() => onSort(`ms:${m.id}`)}
                     className={`relative py-2 px-2 text-center font-bold w-22  cursor-pointer select-none hover:bg-sky-400 hover:text-white ${dayBgClassHeader(m.label)}${dayGroupBorder(visibleMilestones, idx)}`}
                     title={m.label}
                   >
                     <span className="text-sm leading-tight block font-black">
-                      {h.day}{isFirst && <SortArrow col="monDone" sortCol={sortCol} sortDir={sortDir} />}
+                      {h.day}<SortArrow col={`ms:${m.id}`} sortCol={sortCol} sortDir={sortDir} />
                     </span>
                     <span className="text-xs leading-tight block font-semibold text-black">
                       {h.action}
@@ -452,23 +451,22 @@ export function BubbleBoard({
               </th>
             )}
             {showTue ? (
-              tueMilestones.map((m, mIdx) => {
+              tueMilestones.map((m) => {
                 const idx = visibleMilestones.findIndex((vm) => vm.id === m.id);
                 const h = milestoneHeader(m.label);
                 const s = summaries.find((x) => x.milestoneId === m.id)!;
                 const pct = s.total > 0 ? Math.round((s.done / s.total) * 100) : 0;
                 const countColor = pct === 100 ? "text-green-700" : pct >= 50 ? "text-amber-700" : "text-red-700";
-                const isFirst = mIdx === 0;
                 const isLast = m.id === tueMilestones[tueMilestones.length - 1].id;
                 return (
                   <th
                     key={m.id}
-                    onClick={() => onSort("tueDone")}
+                    onClick={() => onSort(`ms:${m.id}`)}
                     className={`relative py-2 px-2 text-center font-bold w-22  cursor-pointer select-none hover:bg-amber-400 hover:text-white ${dayBgClassHeader(m.label)}${dayGroupBorder(visibleMilestones, idx)}`}
                     title={m.label}
                   >
                     <span className="text-sm leading-tight block font-black">
-                      {h.day}{isFirst && <SortArrow col="tueDone" sortCol={sortCol} sortDir={sortDir} />}
+                      {h.day}<SortArrow col={`ms:${m.id}`} sortCol={sortCol} sortDir={sortDir} />
                     </span>
                     <span className="text-xs leading-tight block font-semibold text-black">
                       {h.action}

@@ -540,6 +540,16 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
         const bName = b.contacts[0]?.name || "";
         cmp = aName.localeCompare(bName);
       }
+      else if (effectiveCol.startsWith("ms:")) {
+        const mid = Number(effectiveCol.slice(3));
+        const aVal = a.statuses.some((s) => s.milestoneId === mid && s.value);
+        const bVal = b.statuses.some((s) => s.milestoneId === mid && s.value);
+        if (aVal !== bVal) {
+          const groupCmp = aVal ? -1 : 1;
+          return effectiveDir === "asc" ? groupCmp : -groupCmp;
+        }
+        return a.name.localeCompare(b.name);
+      }
       else if (effectiveCol === "monDone" || effectiveCol === "tueDone") {
         const ids = effectiveCol === "monDone" ? monMilestoneIds : tueMilestoneIds;
         const aDone = isDayDone(a, ids);
