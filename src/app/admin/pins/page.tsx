@@ -10,6 +10,7 @@ interface UserAccount {
   zoneId: number | null;
   zone: { number: number; name: string } | null;
   pinMode: string;
+  sharedPin: string | null;
   active: boolean;
   expiresAt: string | null;
   createdAt: string;
@@ -61,30 +62,28 @@ export default function AccountManagementPage() {
     return users.find((u) => u.role === role && u.pinMode === "shared" && u.active);
   }
 
-  async function handleGenerateSharedPin(role: string) {
-    const res = await fetch("/api/admin/pins/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ role, count: 1, pinMode: "shared" }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setNewPin({ role, pin: data.pins[0].pin });
-      fetchUsers();
-    }
-  }
+  const [pinPicker, setPinPicker] = useState<{ role: string; userId: number | null; value: string } | null>(null);
 
-  async function handleNewPin(role: string) {
-    // Expire old shared PINs for this role, then generate new one
-    const oldShared = users.filter((u) => u.role === role && u.pinMode === "shared");
-    for (const u of oldShared) {
-      await fetch(`/api/admin/users/${u.id}`, {
+  async function handleSavePin() {
+    if (!pinPicker) return;
+    if (!/^\d{4,}$/.test(pinPicker.value)) { alert("PIN must be at least 4 digits"); return; }
+    if (pinPicker.userId) {
+      // Update the existing shared PIN to a specific static value
+      await fetch(`/api/admin/users/${pinPicker.userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ field: "active", value: "false" }),
+        body: JSON.stringify({ field: "sharedPin", value: pinPicker.value }),
+      });
+    } else {
+      // Create the shared PIN for this role with a specific value
+      await fetch("/api/admin/pins/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: pinPicker.role, count: 1, pinMode: "shared", password: pinPicker.value }),
       });
     }
-    await handleGenerateSharedPin(role);
+    setPinPicker(null);
+    fetchUsers();
   }
 
   const [expiryPicker, setExpiryPicker] = useState<{ userId: number; value: string } | null>(null);
@@ -300,20 +299,20 @@ export default function AccountManagementPage() {
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
                       <div className="text-xs font-bold text-gray-500 uppercase">Shared PIN</div>
-                      <div className="font-mono text-2xl font-black tracking-wider">{newPin?.role === role.value ? newPin.pin : "••••"}</div>
+                      <div className="font-mono text-2xl font-black tracking-wider">{shared.sharedPin || "••••"}</div>
                       <div className={`text-xs font-bold mt-0.5 ${shared.isExpired ? "text-red-600" : "text-gray-500"}`}>
                         {formatExpiry(shared.expiresAt, shared.isExpired)}
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => handleNewPin(role.value)} className="px-3 py-1.5 rounded-md bg-gray-900 text-white text-xs font-bold hover:bg-gray-800">New PIN</button>
+                      <button onClick={() => setPinPicker({ role: role.value, userId: shared.id, value: shared.sharedPin || "" })} className="px-3 py-1.5 rounded-md bg-gray-900 text-white text-xs font-bold hover:bg-gray-800">Set PIN</button>
                       <button onClick={() => setExpiryPicker({ userId: shared.id, value: shared.expiresAt ? shared.expiresAt.split("T")[0] : "" })} className="px-3 py-1.5 rounded-md border text-xs font-bold hover:bg-white/50">Set Expiry</button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div className="text-sm text-gray-600">No shared PIN set</div>
-                    <button onClick={() => handleGenerateSharedPin(role.value)} className="px-3 py-1.5 rounded-md bg-gray-900 text-white text-xs font-bold hover:bg-gray-800 self-start">Generate Shared PIN</button>
+                    <button onClick={() => setPinPicker({ role: role.value, userId: null, value: "" })} className="px-3 py-1.5 rounded-md bg-gray-900 text-white text-xs font-bold hover:bg-gray-800 self-start">Set Shared PIN</button>
                   </div>
                 )}
               </div>
@@ -427,6 +426,28 @@ export default function AccountManagementPage() {
                 Remove expiry (PIN never expires)
               </button>
             )}
+          </div>
+        </div>
+      )}
+      {/* Set shared PIN modal */}
+      {pinPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setPinPicker(null)}>
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-80" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-black mb-3">{pinPicker.userId ? "Set Shared PIN" : "Create Shared PIN"}</h3>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={pinPicker.value}
+              onChange={(e) => setPinPicker({ ...pinPicker, value: e.target.value.replace(/\D/g, "") })}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSavePin(); if (e.key === "Escape") setPinPicker(null); }}
+              placeholder="Enter PIN (4+ digits)"
+              autoFocus
+              className="w-full h-11 rounded-lg border-2 border-gray-200 px-3 text-sm font-mono tracking-wider focus:border-emerald-500 focus-visible:outline-none"
+            />
+            <div className="flex gap-2 mt-4">
+              <button onClick={handleSavePin} className="flex-1 h-10 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700">Save PIN</button>
+              <button onClick={() => setPinPicker(null)} className="h-10 px-4 rounded-lg border text-sm font-bold hover:bg-gray-100">Cancel</button>
+            </div>
           </div>
         </div>
       )}

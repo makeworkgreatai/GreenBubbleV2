@@ -61,6 +61,15 @@ export const PATCH = withRole("SUPERVISOR", async (req, { session }) => {
     oldValue = user.expiresAt ? user.expiresAt.toISOString() : "never";
     data.expiresAt = value ? new Date(value) : null;
     newValue = value || "never";
+  } else if (field === "sharedPin") {
+    // Set a specific shared PIN value (kept readable for display)
+    if (!/^\d{4,}$/.test(value)) {
+      return NextResponse.json({ error: "PIN must be at least 4 digits" }, { status: 400 });
+    }
+    data.pinHash = await hash(value, 10);
+    data.sharedPin = value;
+    oldValue = "(hidden)";
+    newValue = "(updated)";
   } else {
     return NextResponse.json({ error: "Unknown field" }, { status: 400 });
   }
@@ -80,7 +89,7 @@ export const PATCH = withRole("SUPERVISOR", async (req, { session }) => {
 });
 
 // DELETE — remove user
-export const DELETE = withRole("ADMIN", async (req, { session }) => {
+export const DELETE = withRole("SUPERVISOR", async (req, { session }) => {
   const id = Number(req.url.split("/users/")[1]);
   if (!id) return NextResponse.json({ error: "Invalid user ID" }, { status: 400 });
 
@@ -89,6 +98,11 @@ export const DELETE = withRole("ADMIN", async (req, { session }) => {
 
   if (user.role === "ADMIN") {
     return NextResponse.json({ error: "Cannot delete admin accounts" }, { status: 403 });
+  }
+
+  // Supervisors cannot delete other supervisors
+  if (session.role === "SUPERVISOR" && user.role === "SUPERVISOR") {
+    return NextResponse.json({ error: "Cannot delete this user" }, { status: 403 });
   }
 
   // Nullify references before deleting

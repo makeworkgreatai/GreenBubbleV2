@@ -106,6 +106,7 @@ model User {
   zoneId      Int?             @map("zone_id") // only for ZONE_CAPTAIN
   zone        Zone?            @relation(fields: [zoneId], references: [id])
   pinMode     String           @default("named") @map("pin_mode") // "named" | "open" | "shared"
+  sharedPin   String?          @map("shared_pin") // readable PIN, only stored for shared-mode users
   active      Boolean          @default(true)
   expiresAt   DateTime?        @map("expires_at")
   createdAt   DateTime         @default(now()) @map("created_at")

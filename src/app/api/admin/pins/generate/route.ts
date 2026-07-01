@@ -73,6 +73,7 @@ export const POST = withRole("SUPERVISOR", async (req, { session }) => {
       role,
       zoneId: role === "ZONE_CAPTAIN" ? zoneId ?? null : null,
       pinMode: mode,
+      sharedPin: mode === "shared" ? pin : null,
       active: true,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
     });

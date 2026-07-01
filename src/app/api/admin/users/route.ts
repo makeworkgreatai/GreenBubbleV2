@@ -20,6 +20,7 @@ export const GET = withRole("SUPERVISOR", async () => {
       zoneId: u.zoneId,
       zone: u.zone,
       pinMode: u.pinMode,
+      sharedPin: u.sharedPin,
       active: u.active,
       expiresAt: u.expiresAt,
       createdAt: u.createdAt,
