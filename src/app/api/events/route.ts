@@ -47,6 +47,9 @@ export async function GET() {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
+      // Tell Nginx (and other reverse proxies) not to buffer this stream,
+      // otherwise SSE events are held back and clients never update live.
+      "X-Accel-Buffering": "no",
     },
   });
 }
