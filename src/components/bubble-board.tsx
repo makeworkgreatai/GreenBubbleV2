@@ -971,13 +971,15 @@ function StatusBubble({
     : `${milestoneLabel} · ${locationName}`;
 
   return (
-    <div className="relative inline-flex items-center justify-center">
+    <div
+      className="relative inline-flex items-center justify-center"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
       <button
         type="button"
         disabled={!canEdit}
         onClick={onClick}
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
         className={`w-11 h-11 rounded-full border-3 transition-all flex items-center justify-center text-sm font-black ${
           done
             ? "bg-gradient-to-b from-green-300 to-green-700 border-green-800 text-white shadow-[0_3px_6px_rgba(0,0,0,0.4),inset_0_2px_1px_rgba(255,255,255,0.4),inset_0_-2px_1px_rgba(0,0,0,0.2)]"
@@ -985,7 +987,7 @@ function StatusBubble({
         } ${
           canEdit
             ? "cursor-pointer hover:scale-110 hover:shadow-lg active:scale-95 active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)] group-hover/cell:scale-110 group-hover/cell:shadow-lg group-active/cell:scale-95 group-active/cell:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]"
-            : "cursor-default"
+            : "cursor-default pointer-events-none"
         } disabled:opacity-60`}
         aria-label={done ? "Done" : "Not done"}
       >

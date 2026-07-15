@@ -86,7 +86,7 @@ export default function AuditPage() {
       v.includes(",") || v.includes('"') || v.includes("\n") ? `"${v.replace(/"/g, '""')}"` : v;
     const rows = allLogs.map((l) => [
       String(l.id),
-      new Date(l.createdAt).toISOString(),
+      new Date(l.createdAt).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" }),
       l.user?.displayName || "System",
       l.locationId != null ? String(l.locationId) : "",
       l.field,
