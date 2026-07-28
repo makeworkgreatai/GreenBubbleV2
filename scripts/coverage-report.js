@@ -68,14 +68,23 @@ async function main() {
 
   let complete = 0, partial = 0, untouched = 0, missing = 0;
   const lines = [];
+  // Per-PC rollup: how many of each PC's bubbles were toggled, to guess which
+  // worksheets were actually handed in / completed.
+  const pcRollup = new Map(); // pc -> { touchedBubbles, totalBubbles, locsWithActivity }
   assigned.forEach((name, i) => {
     const pc = Math.floor(i / PER) + 1;
     const slot = String.fromCharCode(65 + (i % PER));
     const tag = `PC${String(pc).padStart(2, "0")}${slot}`;
     const l = byName.get(name);
+    if (!pcRollup.has(pc)) pcRollup.set(pc, { touchedBubbles: 0, totalBubbles: 0, locsWithActivity: 0, locs: 0 });
+    const roll = pcRollup.get(pc);
+    roll.locs++;
+    roll.totalBubbles += allFields.length;
     if (!l) { missing++; lines.push(`${tag}  --   NOT-IN-DB   ${name}`); return; }
     const done = touched.get(l.id) || new Set();
     const n = allFields.filter((f) => done.has(f)).length;
+    roll.touchedBubbles += n;
+    if (n > 0) roll.locsWithActivity++;
     let status;
     if (n === 0) { status = "UNTOUCHED"; untouched++; }
     else if (n >= allFields.length) { status = "COMPLETE "; complete++; }
@@ -105,6 +114,25 @@ async function main() {
       console.log(`  ${touched.get(id).size}/${allFields.length}  ${nameById.get(id) || "id " + id}`)
     );
   }
+
+  // Per-PC guess: which worksheets appear handed in / completed.
+  // DONE = every assigned location has all bubbles toggled;
+  // STARTED = some activity but not all; NOT-DONE = no activity at all.
+  const doneP = [], startedP = [], notDoneP = [];
+  [...pcRollup.keys()].sort((a, b) => a - b).forEach((pc) => {
+    const r = pcRollup.get(pc);
+    if (r.touchedBubbles >= r.totalBubbles && r.totalBubbles > 0) doneP.push(pc);
+    else if (r.touchedBubbles > 0) startedP.push({ pc, r });
+    else notDoneP.push(pc);
+  });
+  const fmtPc = (pc) => `PC${String(pc).padStart(2, "0")}`;
+  console.log(`\n=== Worksheet guess (per PC) ===`);
+  console.log(`DONE (all bubbles) [${doneP.length}]: ${doneP.map(fmtPc).join(", ") || "none"}`);
+  console.log(`STARTED (partial) [${startedP.length}]:`);
+  startedP.forEach(({ pc, r }) =>
+    console.log(`  ${fmtPc(pc)}  ${r.touchedBubbles}/${r.totalBubbles} bubbles, ${r.locsWithActivity}/${r.locs} locations`)
+  );
+  console.log(`NOT-DONE (no activity) [${notDoneP.length}]: ${notDoneP.map(fmtPc).join(", ") || "none"}`);
 
   await prisma.$disconnect();
 }
