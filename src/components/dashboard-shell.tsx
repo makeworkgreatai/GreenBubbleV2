@@ -159,6 +159,8 @@ function DeleteLocationsButton({ onDeleted }: { onDeleted: () => void }) {
 function ClearElectionButton({ onReset }: { onReset: () => void }) {
   const [step, setStep] = useState<0 | 1 | 2>(0);
   const [downloading, setDownloading] = useState(false);
+  const [electionName, setElectionName] = useState("");
+  const [isTest, setIsTest] = useState(false);
 
   async function handleConfirm() {
     if (step === 0) {
@@ -174,11 +176,17 @@ function ClearElectionButton({ onReset }: { onReset: () => void }) {
       setStep(2);
       return;
     }
-    // Final confirm — reset the board
-    const res = await fetch("/api/admin/reset-board", { method: "POST" });
+    // Final confirm — reset the board, tagging the election being cleared
+    const res = await fetch("/api/admin/reset-board", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: electionName.trim(), isTest }),
+    });
     if (res.ok) {
       onReset();
       setStep(0);
+      setElectionName("");
+      setIsTest(false);
     }
   }
 
@@ -216,7 +224,19 @@ function ClearElectionButton({ onReset }: { onReset: () => void }) {
           <>
             <h2 className="text-lg font-black text-red-600 mb-2">FINAL WARNING</h2>
             <p className="text-sm mb-2">Audit log has been saved. You are about to clear the <span className="font-black">ENTIRE</span> election board.</p>
-            <p className="text-sm font-bold text-red-600 mb-4">All statuses will be reset. Are you absolutely sure?</p>
+            <p className="text-sm font-bold text-red-600 mb-3">All statuses will be reset. Name the election you are clearing:</p>
+            <input
+              type="text"
+              value={electionName}
+              onChange={(e) => setElectionName(e.target.value)}
+              placeholder="e.g. Nov 2025 General"
+              autoFocus
+              className="w-full h-10 rounded-md border-2 border-gray-200 px-3 text-sm font-medium mb-3 focus:border-red-500 focus-visible:outline-none"
+            />
+            <label className="flex items-center gap-2 text-sm font-bold mb-4 cursor-pointer">
+              <input type="checkbox" checked={isTest} onChange={(e) => setIsTest(e.target.checked)} />
+              This was a <span className="text-amber-600">TEST</span> (tag it so it can be filtered out)
+            </label>
             <div className="flex gap-3 justify-end">
               <button onClick={handleCancel} className="px-4 py-2 rounded-md border text-sm font-bold hover:bg-gray-100">No, Go Back</button>
               <button onClick={handleConfirm} className="px-4 py-2 rounded-md bg-red-700 text-white text-sm font-black hover:bg-red-800">CLEAR ELECTION</button>

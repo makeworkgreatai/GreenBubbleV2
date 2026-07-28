@@ -121,6 +121,20 @@ model User {
 
 // --- Tracking ---
 
+// An election is the span from a fresh board to when it is cleared.
+// Clearing the board closes the current (open) election with a name and starts
+// a new open one. Used to filter the audit log by election period.
+model Election {
+  id        Int       @id @default(autoincrement())
+  name      String
+  isTest    Boolean   @default(false) @map("is_test")
+  startedAt DateTime  @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@map("elections")
+}
+
 model AuditLog {
   id         Int      @id @default(autoincrement())
   locationId Int?     @map("location_id")

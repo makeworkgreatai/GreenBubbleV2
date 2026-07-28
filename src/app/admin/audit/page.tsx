@@ -14,6 +14,14 @@ interface AuditEntry {
   user: { displayName: string } | null;
 }
 
+interface Election {
+  id: number;
+  name: string;
+  isTest: boolean;
+  startedAt: string;
+  endedAt: string | null;
+}
+
 export default function AuditPage() {
   const [logs, setLogs] = useState<AuditEntry[]>([]);
   const [total, setTotal] = useState(0);
@@ -28,6 +36,14 @@ export default function AuditPage() {
   const [locationFilter, setLocationFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [electionFilter, setElectionFilter] = useState("");
+  const [elections, setElections] = useState<Election[]>([]);
+
+  useEffect(() => {
+    fetch("/api/admin/elections")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) setElections(d.elections); });
+  }, []);
 
   async function fetchLogs(p = 1) {
     setLoading(true);
@@ -36,6 +52,7 @@ export default function AuditPage() {
     if (fieldFilter) params.set("field", fieldFilter);
     if (userFilter) params.set("user", userFilter);
     if (locationFilter) params.set("locationId", locationFilter);
+    if (electionFilter) params.set("election", electionFilter);
     if (dateFrom) params.set("from", dateFrom);
     if (dateTo) params.set("to", dateTo);
     params.set("page", String(p));
@@ -64,6 +81,7 @@ export default function AuditPage() {
     if (fieldFilter) params.set("field", fieldFilter);
     if (userFilter) params.set("user", userFilter);
     if (locationFilter) params.set("locationId", locationFilter);
+    if (electionFilter) params.set("election", electionFilter);
     if (dateFrom) params.set("from", dateFrom);
     if (dateTo) params.set("to", dateTo);
     // Fetch ALL matching (not paginated) by getting all pages
@@ -124,7 +142,7 @@ export default function AuditPage() {
         <div>
           <h1 className="text-2xl font-black">Audit Log</h1>
           <p className="text-sm text-gray-500">
-            {(search || fieldFilter || userFilter || locationFilter || dateFrom || dateTo)
+            {(search || fieldFilter || userFilter || locationFilter || electionFilter || dateFrom || dateTo)
               ? `${total.toLocaleString()} entries match filters`
               : `${total.toLocaleString()} total entries`}
           </p>
@@ -179,6 +197,21 @@ export default function AuditPage() {
           Search
         </button>
         <label className="md:col-span-2 flex flex-col text-[10px] font-bold text-gray-400 uppercase">
+          Election
+          <select
+            value={electionFilter}
+            onChange={(e) => setElectionFilter(e.target.value)}
+            className="h-9 rounded-md border px-2 text-sm font-normal normal-case text-black"
+          >
+            <option value="">All time / all elections</option>
+            {elections.map((el) => (
+              <option key={el.id} value={el.id}>
+                {el.name}{el.isTest ? " [TEST]" : ""}{el.endedAt ? "" : " (current)"}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="md:col-span-2 flex flex-col text-[10px] font-bold text-gray-400 uppercase">
           From
           <input
             type="datetime-local"
@@ -198,7 +231,7 @@ export default function AuditPage() {
         </label>
         <button
           type="button"
-          onClick={() => { setSearch(""); setFieldFilter(""); setUserFilter(""); setLocationFilter(""); setDateFrom(""); setDateTo(""); }}
+          onClick={() => { setSearch(""); setFieldFilter(""); setUserFilter(""); setLocationFilter(""); setElectionFilter(""); setDateFrom(""); setDateTo(""); }}
           className="md:col-span-2 h-9 rounded-md border text-xs md:text-sm font-bold hover:bg-gray-100"
         >
           Clear Filters

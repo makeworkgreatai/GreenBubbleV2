@@ -43,6 +43,7 @@ export const GET = withRole("ADMIN", async (req) => {
   const locationId = url.searchParams.get("locationId") || "";
   const dateFrom = url.searchParams.get("from") || "";
   const dateTo = url.searchParams.get("to") || "";
+  const electionId = url.searchParams.get("election") || "";
   const search = url.searchParams.get("q") || "";
   const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
   const limit = 100;
@@ -52,13 +53,25 @@ export const GET = withRole("ADMIN", async (req) => {
   if (field) where.field = { contains: field };
   if (locationId) where.locationId = Number(locationId) || undefined;
   if (user) where.user = { displayName: { contains: user, mode: "insensitive" } };
-  if (dateFrom || dateTo) {
+  // Time window: an election defines a default range; explicit From/To override.
+  let gte: Date | undefined;
+  let lte: Date | undefined;
+  if (electionId) {
+    const el = await db.election.findUnique({ where: { id: Number(electionId) || 0 } });
+    if (el) {
+      gte = el.startedAt;
+      lte = el.endedAt ?? undefined;
+    }
+  }
+  // Accept datetime-local ("2026-07-28T13:30") or legacy date-only ("2026-07-28").
+  const from = easternToUtc(dateFrom);
+  const to = easternToUtc(dateTo.includes("T") ? dateTo : dateTo ? dateTo + "T23:59:59" : "");
+  if (from) gte = from;
+  if (to) lte = to;
+  if (gte || lte) {
     where.createdAt = {};
-    // Accept datetime-local ("2026-07-28T13:30") or legacy date-only ("2026-07-28").
-    const from = easternToUtc(dateFrom);
-    const to = easternToUtc(dateTo.includes("T") ? dateTo : dateTo ? dateTo + "T23:59:59" : "");
-    if (from) where.createdAt.gte = from;
-    if (to) where.createdAt.lte = to;
+    if (gte) where.createdAt.gte = gte;
+    if (lte) where.createdAt.lte = lte;
   }
   if (search) {
     where.OR = [
