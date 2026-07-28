@@ -49,6 +49,7 @@ interface Props {
   onAddRow: () => void;
   onDeleteRow: (locationId: number) => void;
   nightMode?: boolean;
+  publicView?: boolean;
 }
 
 function formatPhone(raw: string): string {
@@ -267,6 +268,7 @@ export function BubbleBoard({
   onAddRow,
   onDeleteRow,
   nightMode,
+  publicView,
 }: Props) {
   const [showPoll, setShowPoll] = useState(true);
   const [showLocation, setShowLocation] = useState(true);
@@ -499,6 +501,7 @@ export function BubbleBoard({
               onEditField={onEditField}
               onAddItem={onAddItem}
               onDeleteRow={onDeleteRow}
+              publicView={publicView}
             />
           ))}
           {locations.length === 0 && (
@@ -652,6 +655,7 @@ function LocationRow({
   onEditField,
   onAddItem,
   onDeleteRow,
+  publicView,
 }: {
   location: Location;
   milestones: Milestone[];
@@ -663,6 +667,7 @@ function LocationRow({
   onEditField: (locationId: number, field: string, value: string, index?: number) => void;
   onAddItem: (locationId: number, field: string) => void;
   onDeleteRow: (locationId: number) => void;
+  publicView?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const precinctStr = location.precincts.map((p) => p.label).join(", ");
@@ -775,7 +780,7 @@ function LocationRow({
           )}
         </td>
       ) : <td className="w-6" />}
-      {showCols.contact ? <ContactCell contact={contact} hovered={dataCellHover} editMode={editMode} locationId={location.id} onEditField={onEditField} onAddItem={onAddItem} smsPhone={location.smsPhone} /> : <td className="w-6" />}
+      {showCols.contact ? <ContactCell contact={contact} hovered={dataCellHover} editMode={editMode} locationId={location.id} onEditField={onEditField} onAddItem={onAddItem} smsPhone={location.smsPhone} publicView={publicView} /> : <td className="w-6" />}
       {showCols.mon ? (
         milestones.filter((m) => milestoneHeader(m.label).day === "Mon").map((m, idx) => {
           const status = location.statuses.find((s) => s.milestoneId === m.id);
@@ -836,6 +841,7 @@ function ContactCell({
   onEditField,
   onAddItem,
   smsPhone,
+  publicView,
 }: {
   contact: { name: string; phones: { label: string; number: string }[] } | undefined;
   hovered: string;
@@ -844,6 +850,7 @@ function ContactCell({
   onEditField: (locationId: number, field: string, value: string, index?: number) => void;
   onAddItem: (locationId: number, field: string) => void;
   smsPhone?: string | null;
+  publicView?: boolean;
 }) {
   const [showAll, setShowAll] = useState(false);
   const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -871,7 +878,8 @@ function ContactCell({
     );
   }
 
-  const hasMore = contact.phones.length > 1;
+  // In public read-only view, don't expose extra contact numbers via the "i" icon.
+  const hasMore = contact.phones.length > 1 && !publicView;
 
   return (
     <td

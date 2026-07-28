@@ -90,19 +90,39 @@ export async function POST(req: Request) {
 
     const valid = await compare(pin, user.pinHash);
     if (valid) {
-      await setSessionCookie({
-        userId: user.id,
-        displayName,
-        role: user.role,
-        zoneId: user.zoneId,
+      // Give this person their own account so their entered name (not the
+      // shared holder's name) shows on bubbles and in the audit log.
+      // Reuse an existing account with the same name, otherwise create one.
+      let account = await db.user.findFirst({
+        where: { displayName: { equals: displayName, mode: "insensitive" }, role: user.role },
       });
-      await logLogin({ userId: user.id, displayName, success: true, ...client, reason: `${user.pinMode} PIN` });
+      if (!account) {
+        account = await db.user.create({
+          data: {
+            displayName,
+            pinHash: user.pinHash,
+            role: user.role,
+            zoneId: user.zoneId,
+            pinMode: "named",
+            active: true,
+            expiresAt: user.expiresAt,
+          },
+        });
+      }
+
+      await setSessionCookie({
+        userId: account.id,
+        displayName: account.displayName,
+        role: account.role,
+        zoneId: account.zoneId,
+      });
+      await logLogin({ userId: account.id, displayName: account.displayName, success: true, ...client, reason: `${user.pinMode} PIN` });
       return NextResponse.json({
         user: {
-          id: user.id,
-          displayName,
-          role: user.role,
-          zoneId: user.zoneId,
+          id: account.id,
+          displayName: account.displayName,
+          role: account.role,
+          zoneId: account.zoneId,
         },
       });
     }

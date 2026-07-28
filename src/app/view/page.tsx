@@ -208,6 +208,7 @@ export default function PublicViewPage() {
         onAddItem={() => {}}
         onAddRow={() => {}}
         onDeleteRow={() => {}}
+        publicView={true}
       />
     </main>
   );
