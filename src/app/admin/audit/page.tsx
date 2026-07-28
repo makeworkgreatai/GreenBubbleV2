@@ -123,7 +123,11 @@ export default function AuditPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-black">Audit Log</h1>
-          <p className="text-sm text-gray-500">{total.toLocaleString()} total entries</p>
+          <p className="text-sm text-gray-500">
+            {(search || fieldFilter || userFilter || locationFilter || dateFrom || dateTo)
+              ? `${total.toLocaleString()} entries match filters`
+              : `${total.toLocaleString()} total entries`}
+          </p>
         </div>
         <div className="flex gap-2">
           <button
@@ -174,20 +178,24 @@ export default function AuditPage() {
         <button type="submit" className="h-9 rounded-md bg-black text-white text-xs md:text-sm font-bold hover:bg-gray-800">
           Search
         </button>
-        <input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          className="md:col-span-2 h-9 rounded-md border px-3 text-sm"
-          placeholder="From date"
-        />
-        <input
-          type="date"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          className="md:col-span-2 h-9 rounded-md border px-3 text-sm"
-          placeholder="To date"
-        />
+        <label className="md:col-span-2 flex flex-col text-[10px] font-bold text-gray-400 uppercase">
+          From
+          <input
+            type="datetime-local"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="h-9 rounded-md border px-3 text-sm font-normal normal-case text-black"
+          />
+        </label>
+        <label className="md:col-span-2 flex flex-col text-[10px] font-bold text-gray-400 uppercase">
+          To
+          <input
+            type="datetime-local"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="h-9 rounded-md border px-3 text-sm font-normal normal-case text-black"
+          />
+        </label>
         <button
           type="button"
           onClick={() => { setSearch(""); setFieldFilter(""); setUserFilter(""); setLocationFilter(""); setDateFrom(""); setDateTo(""); }}
