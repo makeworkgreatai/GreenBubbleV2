@@ -7,7 +7,8 @@ export const POST = withRole("ADMIN", async (_req, { session }) => {
   await db.locationStatus.updateMany({
     data: {
       value: false,
-      updatedBy: session.userId,
+      // Clear attribution so a reset board shows no "who/when" on red bubbles
+      updatedBy: null,
       updatedAt: new Date(),
     },
   });
