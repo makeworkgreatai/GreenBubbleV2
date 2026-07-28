@@ -25,7 +25,8 @@ export default function PublicViewPage() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [zoneFilter, setZoneFilter] = useState<number | "all">("all");
+  const [zoneFilter, setZoneFilter] = useState<number[]>([]); // empty = all zones
+  const [zoneMenuOpen, setZoneMenuOpen] = useState(false);
   const [sortCol, setSortCol] = useState<string>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [lastActivity, setLastActivity] = useState<{ text: string; time: Date } | null>(null);
@@ -102,7 +103,7 @@ export default function PublicViewPage() {
 
   const filtered = useMemo(() => {
     let result = locations;
-    if (zoneFilter !== "all") result = result.filter((loc) => loc.zone.number === zoneFilter);
+    if (zoneFilter.length > 0) result = result.filter((loc) => zoneFilter.includes(loc.zone.number));
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter((loc) => loc.name.toLowerCase().includes(q) || loc.address.toLowerCase().includes(q) || loc.city.toLowerCase().includes(q));
@@ -181,14 +182,43 @@ export default function PublicViewPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="h-8 w-56 rounded-md border border-white/60 bg-black/20 px-3 text-sm font-bold text-white placeholder:text-white/80 placeholder:font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
             />
-            <select
-              value={zoneFilter}
-              onChange={(e) => setZoneFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
-              className="h-8 rounded-md border border-white/60 bg-black/20 px-3 text-sm font-bold text-white [&_option]:text-black [&_option]:bg-white"
-            >
-              <option value="all">All Zones</option>
-              {zones.map((z) => <option key={z.number} value={z.number}>{z.name}</option>)}
-            </select>
+            <div className="relative">
+              <button
+                onClick={() => setZoneMenuOpen((o) => !o)}
+                className="h-8 rounded-md border border-white/60 bg-black/20 px-3 text-sm font-bold text-white flex items-center gap-1"
+              >
+                {zoneFilter.length === 0
+                  ? "All Zones"
+                  : `Zones: ${[...zoneFilter].sort((a, b) => a - b).join(", ")}`}
+                <span className="text-xs">▾</span>
+              </button>
+              {zoneMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setZoneMenuOpen(false)} />
+                  <div className="absolute right-0 z-50 mt-1 w-48 rounded-md border bg-white shadow-lg p-1.5 text-black">
+                    <label className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm font-bold">
+                      <input type="checkbox" checked={zoneFilter.length === 0} onChange={() => setZoneFilter([])} />
+                      All Zones
+                    </label>
+                    <div className="border-t my-1" />
+                    {zones.map((z) => (
+                      <label key={z.number} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={zoneFilter.includes(z.number)}
+                          onChange={() =>
+                            setZoneFilter((prev) =>
+                              prev.includes(z.number) ? prev.filter((n) => n !== z.number) : [...prev, z.number]
+                            )
+                          }
+                        />
+                        {z.name}
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
