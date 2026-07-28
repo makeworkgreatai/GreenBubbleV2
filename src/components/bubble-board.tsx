@@ -334,6 +334,7 @@ export function BubbleBoard({
                 userRole={userRole}
                 userZoneId={userZoneId}
                 onToggle={onToggle}
+                publicView={publicView}
               />
             );
           })}
@@ -405,7 +406,8 @@ export function BubbleBoard({
                 <div className="flex items-center justify-center h-full"><EyeIcon open={false} /></div>
               </th>
             )}
-            {showContact ? (
+            {/* VLM Contact column is hidden entirely in public view (contains PII) */}
+            {publicView ? null : showContact ? (
               <th
                 onClick={() => onSort("contact")}
                 className="relative text-left py-3 px-3 text-sm whitespace-nowrap align-top bg-fuchsia-300 cursor-pointer hover:bg-fuchsia-400 hover:text-white select-none"
@@ -545,6 +547,7 @@ function MobileLocationCard({
   userRole,
   userZoneId,
   onToggle,
+  publicView,
 }: {
   location: Location;
   milestones: Milestone[];
@@ -554,6 +557,7 @@ function MobileLocationCard({
   userRole: string;
   userZoneId: number | null;
   onToggle: (locationId: number, milestoneId: number) => void;
+  publicView?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const doneCount = milestones.filter((m) => location.statuses.some((s) => s.milestoneId === m.id && s.value)).length;
@@ -596,10 +600,10 @@ function MobileLocationCard({
           <div className="flex gap-3 text-xs text-gray-600 py-2">
             {location.pollId && <span className="font-mono">{location.pollId}</span>}
             <span className="font-bold">{location.zone.name}</span>
-            {contact && <span>{contact.name}</span>}
+            {!publicView && contact && <span>{contact.name}</span>}
           </div>
-          {/* Contact phones */}
-          {contact && contact.phones.length > 0 && (
+          {/* Contact phones — hidden in public view (PII) */}
+          {!publicView && contact && contact.phones.length > 0 && (
             <div className="mb-2 space-y-0.5">
               {(contact.phones as { label: string; number: string }[]).map((p, i) => (
                 <a key={i} href={`tel:${p.number.replace(/\D/g, "")}`} className="flex items-center gap-2 text-xs text-blue-600 hover:underline">
@@ -780,7 +784,7 @@ function LocationRow({
           )}
         </td>
       ) : <td className="w-6" />}
-      {showCols.contact ? <ContactCell contact={contact} hovered={dataCellHover} editMode={editMode} locationId={location.id} onEditField={onEditField} onAddItem={onAddItem} smsPhone={location.smsPhone} publicView={publicView} /> : <td className="w-6" />}
+      {publicView ? null : showCols.contact ? <ContactCell contact={contact} hovered={dataCellHover} editMode={editMode} locationId={location.id} onEditField={onEditField} onAddItem={onAddItem} smsPhone={location.smsPhone} publicView={publicView} /> : <td className="w-6" />}
       {showCols.mon ? (
         milestones.filter((m) => milestoneHeader(m.label).day === "Mon").map((m, idx) => {
           const status = location.statuses.find((s) => s.milestoneId === m.id);

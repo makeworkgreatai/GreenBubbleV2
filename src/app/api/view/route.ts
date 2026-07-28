@@ -27,11 +27,14 @@ export async function GET() {
           include: { updatedByUser: { select: { displayName: true } } },
         },
         precincts: { select: { label: true } },
-        contacts: { select: { id: true, name: true, title: true, phones: true } },
       },
       orderBy: [{ zoneId: "asc" }, { name: "asc" }],
     }),
   ]);
 
-  return NextResponse.json({ milestones, locations });
+  // Public view must not expose PII — strip contact details and SMS numbers
+  // from the payload entirely (not just visually hidden in the UI).
+  const safeLocations = locations.map((l) => ({ ...l, smsPhone: null, contacts: [] }));
+
+  return NextResponse.json({ milestones, locations: safeLocations });
 }
