@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/admin/cells", label: "Cell Management", color: "bg-pink-500/20 border-pink-400/30 text-pink-300" },
   { href: "/admin/import", label: "Import Data", color: "bg-teal-500/20 border-teal-400/30 text-teal-300" },
   { href: "/admin/audit", label: "Audit Log", color: "bg-cyan-500/20 border-cyan-400/30 text-cyan-300" },
+  { href: "/admin/elections", label: "Manage Elections", color: "bg-indigo-500/20 border-indigo-400/30 text-indigo-300" },
   { href: "/admin/logins", label: "Login Activity", color: "bg-orange-500/20 border-orange-400/30 text-orange-300" },
 ];
 
