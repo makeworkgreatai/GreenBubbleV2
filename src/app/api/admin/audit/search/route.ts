@@ -50,7 +50,7 @@ export const GET = withRole("ADMIN", async (req) => {
     ];
   }
 
-  const [logs, total] = await Promise.all([
+  const [logs, total, milestones] = await Promise.all([
     db.auditLog.findMany({
       where,
       include: { user: { select: { displayName: true } } },
@@ -59,7 +59,19 @@ export const GET = withRole("ADMIN", async (req) => {
       take: limit,
     }),
     db.auditLog.count({ where }),
+    db.statusMilestone.findMany({ select: { id: true, label: true } }),
   ]);
 
-  return NextResponse.json({ logs, total, page, pages: Math.ceil(total / limit) });
+  // Resolve milestone_<id> fields to a human label (e.g. "Monday Delivery")
+  // so the audit log and CSV show which specific status changed.
+  const msLabel = new Map(milestones.map((m) => [m.id, m.label]));
+  const withLabels = logs.map((l) => {
+    let milestoneLabel: string | null = null;
+    if (l.field.startsWith("milestone_")) {
+      milestoneLabel = msLabel.get(Number(l.field.slice("milestone_".length))) ?? null;
+    }
+    return { ...l, milestoneLabel };
+  });
+
+  return NextResponse.json({ logs: withLabels, total, page, pages: Math.ceil(total / limit) });
 });

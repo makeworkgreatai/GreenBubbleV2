@@ -7,6 +7,7 @@ interface AuditEntry {
   id: number;
   locationId: number | null;
   field: string;
+  milestoneLabel: string | null;
   oldValue: string | null;
   newValue: string | null;
   reason: string | null;
@@ -107,7 +108,7 @@ export default function AuditPage() {
       new Date(l.createdAt).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "America/New_York" }),
       l.user?.displayName || "System",
       l.locationId != null ? String(l.locationId) : "",
-      l.field,
+      l.field.startsWith("milestone_") && l.milestoneLabel ? l.milestoneLabel : l.field,
       l.oldValue || "",
       l.newValue || "",
       l.reason || "",
@@ -123,8 +124,8 @@ export default function AuditPage() {
     URL.revokeObjectURL(url);
   }
 
-  function fieldLabel(f: string): string {
-    if (f.startsWith("milestone_")) return "Status Toggle";
+  function fieldLabel(f: string, milestoneLabel?: string | null): string {
+    if (f.startsWith("milestone_")) return milestoneLabel ? `Status: ${milestoneLabel}` : "Status Toggle";
     if (f.startsWith("edit_")) return "Edit: " + f.replace("edit_", "");
     if (f === "board_reset") return "Board Reset";
     if (f === "csv_restore") return "CSV Restore";
@@ -273,7 +274,7 @@ export default function AuditPage() {
                       log.field.includes("reset") || log.field.includes("restore") ? "bg-amber-100 text-amber-700" :
                       "bg-gray-100 text-gray-700"
                     }`}>
-                      {fieldLabel(log.field)}
+                      {fieldLabel(log.field, log.milestoneLabel)}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-gray-600 max-w-[200px] truncate" title={log.oldValue || ""}>
@@ -309,7 +310,7 @@ export default function AuditPage() {
                   log.field.includes("reset") || log.field.includes("restore") ? "bg-amber-100 text-amber-700" :
                   "bg-gray-100 text-gray-700"
                 }`}>
-                  {fieldLabel(log.field)}
+                  {fieldLabel(log.field, log.milestoneLabel)}
                 </span>
                 {log.locationId != null && (
                   <span className="text-xs text-gray-500">Loc #{log.locationId}</span>
