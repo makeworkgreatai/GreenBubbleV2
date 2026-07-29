@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRole } from "@/lib/middleware";
+import { sendSms, buildAssignmentMessage } from "@/lib/sms";
 
 // GET — list all locations with their SMS phone assignments
 export const GET = withRole("SUPERVISOR", async () => {
@@ -57,9 +58,10 @@ export const PATCH = withRole("SUPERVISOR", async (req, { session }) => {
     }
   }
 
-  await db.location.update({
+  const location = await db.location.update({
     where: { id: locationId },
     data: { smsPhone: phone || null },
+    select: { name: true, pollId: true },
   });
 
   await db.auditLog.create({
@@ -71,5 +73,15 @@ export const PATCH = withRole("SUPERVISOR", async (req, { session }) => {
     },
   });
 
-  return NextResponse.json({ ok: true });
+  // Send a welcome text to the newly assigned number with the commands.
+  let smsSent = false;
+  let smsError: string | undefined;
+  if (phone) {
+    const msg = await buildAssignmentMessage(location.name, location.pollId);
+    const result = await sendSms(phone, msg);
+    smsSent = result.sent;
+    smsError = result.error;
+  }
+
+  return NextResponse.json({ ok: true, smsSent, smsError });
 });

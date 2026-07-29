@@ -82,6 +82,12 @@ export default function CellManagementPage() {
       alert(data.error || "Failed to save");
       return;
     }
+    const data = await res.json().catch(() => ({}));
+    if (editValue && data.smsSent === false) {
+      alert(`Assigned, but the welcome text could NOT be sent:\n${data.smsError || "unknown error"}\n\nCheck Twilio setup.`);
+    } else if (editValue && data.smsSent) {
+      alert(`Assigned. A welcome text with the commands was sent to ${editValue}.`);
+    }
     setEditingId(null);
     fetchData();
   }
