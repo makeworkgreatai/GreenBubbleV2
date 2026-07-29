@@ -16,8 +16,11 @@ export default function TermsPage() {
         </section>
 
         <section>
-          <h2 className="font-bold text-base mb-1">SMS Service</h2>
-          <p>By texting the Green Bubbles service number, you consent to receiving automated SMS responses related to polling location status updates. Standard messaging rates from your carrier may apply. You may stop using the SMS service at any time by not sending further messages.</p>
+          <h2 className="font-bold text-base mb-1">SMS Service (Green Bubbles)</h2>
+          <p>By texting the Green Bubbles service number, registered election workers consent to receiving automated SMS responses related to polling location status updates. This is a private, staff-only messaging program; only pre-registered election workers who provide their mobile number to their county coordinator receive messages.</p>
+          <p className="mt-2"><strong>Message frequency varies</strong> based on Election Day activity. <strong>Message and data rates may apply.</strong></p>
+          <p className="mt-2">Reply <strong>HELP</strong> for help. Reply <strong>STOP</strong> to opt out of messages at any time. For support, contact the Cuyahoga County Board of Elections.</p>
+          <p className="mt-2">Carriers are not liable for delayed or undelivered messages.</p>
         </section>
 
         <section>
