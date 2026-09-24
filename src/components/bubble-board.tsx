@@ -79,7 +79,7 @@ function phoneAbbrev(label: string): string {
 function abbreviate(label: string): string {
   const abbrevMap: Record<string, string> = {
     "Monday Delivery": "Mon Del",
-    "Monday Arrival": "Mon Arr",
+    "Monday Arrival": "Mon Night",
     "Monday Close": "Mon Close",
     "Building Open": "Bldg Open",
     "Tuesday Arrival": "Tue Arr",
@@ -92,12 +92,12 @@ function abbreviate(label: string): string {
 function milestoneHeader(label: string): { day: string; action: string } {
   const map: Record<string, { day: string; action: string }> = {
     "Monday Delivery": { day: "Mon", action: "Delivery" },
-    "Monday Arrival": { day: "Mon", action: "Staff Arrived" },
-    "Monday Close": { day: "Mon", action: "Bldg Closed" },
+    "Monday Arrival": { day: "Mon", action: "Night Arrival" },
+    "Monday Close": { day: "Mon", action: "Close" },
     "Building Open": { day: "Tue", action: "Bldg Open" },
-    "Tuesday Arrival": { day: "Tue", action: "Staff Arrived" },
-    "Open Ready": { day: "Tue", action: "Polls Open" },
-    "Close Poll Ready": { day: "Tue", action: "Polls Closed" },
+    "Tuesday Arrival": { day: "Tue", action: "Arrival" },
+    "Open Ready": { day: "Tue", action: "Open & Ready" },
+    "Close Poll Ready": { day: "Tue", action: "Close Poll Ready" },
   };
   return map[label] || { day: "", action: label };
 }
