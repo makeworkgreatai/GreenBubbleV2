@@ -102,6 +102,9 @@ function milestoneHeader(label: string): { day: string; action: string } {
   return map[label] || { day: "", action: label };
 }
 
+// Display-only full day names (internal grouping still uses "Mon"/"Tue").
+const DAY_FULL: Record<string, string> = { Mon: "Monday", Tue: "Tuesday" };
+
 function dayGroupBorder(milestones: { label: string }[], idx: number): string {
   const days = milestones.map((m) => milestoneHeader(m.label).day);
   const day = days[idx];
@@ -433,11 +436,11 @@ export function BubbleBoard({
                   <th
                     key={m.id}
                     onClick={() => onSort(`ms:${m.id}`)}
-                    className={`relative py-2 px-2 text-center font-bold w-22  cursor-pointer select-none hover:bg-sky-400 hover:text-white ${dayBgClassHeader(m.label)}${dayGroupBorder(visibleMilestones, idx)}`}
+                    className={`relative py-2 px-2 text-center align-top font-bold w-22  cursor-pointer select-none hover:bg-sky-400 hover:text-white ${dayBgClassHeader(m.label)}${dayGroupBorder(visibleMilestones, idx)}`}
                     title={m.label}
                   >
                     <span className="text-sm leading-tight block font-black">
-                      {h.day}<SortArrow col={`ms:${m.id}`} sortCol={sortCol} sortDir={sortDir} />
+                      {DAY_FULL[h.day] || h.day}<SortArrow col={`ms:${m.id}`} sortCol={sortCol} sortDir={sortDir} />
                     </span>
                     <span className="text-xs leading-tight block font-semibold text-black">
                       {h.action}
@@ -466,11 +469,11 @@ export function BubbleBoard({
                   <th
                     key={m.id}
                     onClick={() => onSort(`ms:${m.id}`)}
-                    className={`relative py-2 px-2 text-center font-bold w-22  cursor-pointer select-none hover:bg-amber-400 hover:text-white ${dayBgClassHeader(m.label)}${dayGroupBorder(visibleMilestones, idx)}`}
+                    className={`relative py-2 px-2 text-center align-top font-bold w-22  cursor-pointer select-none hover:bg-amber-400 hover:text-white ${dayBgClassHeader(m.label)}${dayGroupBorder(visibleMilestones, idx)}`}
                     title={m.label}
                   >
                     <span className="text-sm leading-tight block font-black">
-                      {h.day}<SortArrow col={`ms:${m.id}`} sortCol={sortCol} sortDir={sortDir} />
+                      {DAY_FULL[h.day] || h.day}<SortArrow col={`ms:${m.id}`} sortCol={sortCol} sortDir={sortDir} />
                     </span>
                     <span className="text-xs leading-tight block font-semibold text-black">
                       {h.action}
