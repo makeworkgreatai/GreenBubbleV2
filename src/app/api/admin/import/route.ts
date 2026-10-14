@@ -265,10 +265,11 @@ async function importLocations(rows: Record<string, string>[]) {
 // one location + its precincts. Maps county headers to our schema — no need to
 // reformat the spreadsheet.
 
-function deriveWard(precinctName: string, city: string): string {
-  // "MAPLE HEIGHTS -02-A" -> "MAPLE HEIGHTS"
-  const m = precinctName.split(/\s+-/)[0].trim();
-  return m || city || "";
+function parsePrecinct(precinctName: string, city: string): { ward: string; label: string } {
+  // "MAPLE HEIGHTS -02-A" -> ward "MAPLE HEIGHTS", label "02-A"
+  const m = precinctName.match(/^(.*?)\s+-\s*(.+)$/);
+  if (m) return { ward: m[1].trim() || city || "", label: m[2].trim() };
+  return { ward: city || "", label: precinctName };
 }
 
 async function importPrecinctToPolls(rows: Record<string, string>[]) {
@@ -328,7 +329,10 @@ async function importPrecinctToPolls(rows: Record<string, string>[]) {
       if (g.precincts.size > 0) {
         await db.precinct.deleteMany({ where: { locationId } });
         await db.precinct.createMany({
-          data: Array.from(g.precincts).map((label) => ({ locationId, wardName: deriveWard(label, g.city), label })),
+          data: Array.from(g.precincts).map((pn) => {
+            const p = parsePrecinct(pn, g.city);
+            return { locationId, wardName: p.ward, label: p.label };
+          }),
         });
       }
     } catch (err) {
