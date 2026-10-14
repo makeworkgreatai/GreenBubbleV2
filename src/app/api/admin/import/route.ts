@@ -15,6 +15,8 @@ interface FileResult {
 
 // Header signatures for auto-detection (order matters — most specific first)
 const SIGNATURES: Record<string, (headers: string[]) => boolean> = {
+  // County "Precinct to Polls" export — one row per precinct, native county headers
+  precinct_to_polls: (h) => h.includes("poll_code") && h.includes("precinct_name") && (h.includes("adjusted zone") || h.includes("zone")),
   // Polls_Elec — has lat/lng/city/precincts (the richest GIS file)
   polls_elec: (h) => h.includes("latitude") && h.includes("longitude") && h.includes("precincts"),
   // VLM / Coordinator combo sheet — has poll code + zone + VLM + phones (locations + contacts in one)
@@ -72,7 +74,7 @@ export const POST = withRole("ADMIN", async (req, { session }) => {
   }
 
   // Process in dependency order: locations first, then precincts, then contacts, then accounts
-  const order = ["polls_elec", "vlm_combo", "poll_locations", "precincts_list", "contacts", "sms_phones", "accounts"];
+  const order = ["precinct_to_polls", "polls_elec", "vlm_combo", "poll_locations", "precincts_list", "contacts", "sms_phones", "accounts"];
   parsed.sort((a, b) => {
     const ai = order.indexOf(a.type);
     const bi = order.indexOf(b.type);
@@ -84,7 +86,9 @@ export const POST = withRole("ADMIN", async (req, { session }) => {
   for (const entry of parsed) {
     let result: { created: number; updated: number; skipped: number; errors: string[] };
 
-    if (entry.type === "polls_elec" || entry.type === "poll_locations") {
+    if (entry.type === "precinct_to_polls") {
+      result = await importPrecinctToPolls(entry.rows);
+    } else if (entry.type === "polls_elec" || entry.type === "poll_locations") {
       result = await importLocations(entry.rows);
     } else if (entry.type === "vlm_combo") {
       result = await importVlmCombo(entry.rows);
@@ -139,7 +143,9 @@ async function parseFile(file: File): Promise<Record<string, string>[]> {
   if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
     const buffer = await file.arrayBuffer();
     const wb = XLSX.read(buffer);
-    const ws = wb.Sheets[wb.SheetNames[0]];
+    // Use the LAST sheet — county update workbooks append the newest snapshot
+    // as the rightmost tab (single-sheet files are unaffected).
+    const ws = wb.Sheets[wb.SheetNames[wb.SheetNames.length - 1]];
     const csv = XLSX.utils.sheet_to_csv(ws);
     return csvToRows(csv);
   }
@@ -246,6 +252,87 @@ async function importLocations(rows: Record<string, string>[]) {
       }
     } catch (err) {
       result.errors.push(`Row ${i + 2}: ${err instanceof Error ? err.message : "Unknown error"}`);
+      result.skipped++;
+    }
+  }
+
+  return result;
+}
+
+// --- County "Precinct to Polls" Import ---
+// One row per precinct (native county headers: POLL_CODE, POLL_NAME, POLL_ADDR1,
+// POLL_ADDR3, PRECINCT_NAME, ADJUSTED ZONE, ...). Groups rows by poll code into
+// one location + its precincts. Maps county headers to our schema — no need to
+// reformat the spreadsheet.
+
+function deriveWard(precinctName: string, city: string): string {
+  // "MAPLE HEIGHTS -02-A" -> "MAPLE HEIGHTS"
+  const m = precinctName.split(/\s+-/)[0].trim();
+  return m || city || "";
+}
+
+async function importPrecinctToPolls(rows: Record<string, string>[]) {
+  const result = { created: 0, updated: 0, skipped: 0, errors: [] as string[] };
+
+  for (let i = 1; i <= 6; i++) {
+    await db.zone.upsert({ where: { number: i }, create: { number: i, name: `Zone ${i}` }, update: {} });
+  }
+  const zones = await db.zone.findMany();
+  const zoneByNumber = new Map(zones.map((z) => [z.number, z.id]));
+  const milestones = await db.statusMilestone.findMany();
+
+  // Group precinct rows by poll code
+  type Group = { name: string; address: string; city: string; zoneNum: number; precincts: Set<string> };
+  const groups = new Map<string, Group>();
+  for (const row of rows) {
+    const pollId = (row["poll_code"] || row["poll_id"] || row["poll code"] || "").trim();
+    if (!pollId) continue;
+    if (!groups.has(pollId)) groups.set(pollId, { name: "", address: "", city: "", zoneNum: 0, precincts: new Set() });
+    const g = groups.get(pollId)!;
+    if (!g.name) g.name = (row["poll_name"] || row["location_line_1"] || "").trim();
+    if (!g.address) g.address = (row["poll_addr1"] || row["location_line_2"] || "").trim();
+    if (!g.city) g.city = (row["poll_addr3"] || row["city"] || "").trim();
+    if (!g.zoneNum) g.zoneNum = parseInt(row["adjusted zone"] || row["zone"] || "0") || 0;
+    const precinct = (row["precinct_name"] || row["label"] || "").trim();
+    if (precinct) g.precincts.add(precinct);
+  }
+
+  for (const [pollId, g] of Array.from(groups.entries())) {
+    if (!g.name) { result.errors.push(`Poll ${pollId}: missing name`); result.skipped++; continue; }
+    const zoneId = zoneByNumber.get(g.zoneNum);
+
+    try {
+      const existing = await db.location.findUnique({ where: { pollId } });
+      let locationId: number;
+
+      if (existing) {
+        const data: Record<string, unknown> = {};
+        if (g.name) data.name = g.name;
+        if (g.address) data.address = g.address;
+        if (g.city) data.city = g.city;
+        if (zoneId) data.zoneId = zoneId;
+        if (Object.keys(data).length > 0) await db.location.update({ where: { id: existing.id }, data });
+        locationId = existing.id;
+        result.updated++;
+      } else {
+        if (!zoneId) { result.errors.push(`Poll ${pollId} (${g.name}): invalid/missing zone "${g.zoneNum}"`); result.skipped++; continue; }
+        const loc = await db.location.create({ data: { pollId, name: g.name, address: g.address, city: g.city, zoneId } });
+        if (milestones.length > 0) {
+          await db.locationStatus.createMany({ data: milestones.map((m) => ({ locationId: loc.id, milestoneId: m.id, value: false })) });
+        }
+        locationId = loc.id;
+        result.created++;
+      }
+
+      // Replace precincts with the file's current set for this poll
+      if (g.precincts.size > 0) {
+        await db.precinct.deleteMany({ where: { locationId } });
+        await db.precinct.createMany({
+          data: Array.from(g.precincts).map((label) => ({ locationId, wardName: deriveWard(label, g.city), label })),
+        });
+      }
+    } catch (err) {
+      result.errors.push(`Poll ${pollId}: ${err instanceof Error ? err.message : "Unknown error"}`);
       result.skipped++;
     }
   }
