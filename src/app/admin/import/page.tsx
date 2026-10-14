@@ -13,6 +13,7 @@ interface FileResult {
 }
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  precinct_to_polls: { label: "Precinct to Polls (County)", color: "bg-blue-100 text-blue-700" },
   polls_elec: { label: "Locations + Coords + Precincts", color: "bg-blue-100 text-blue-700" },
   vlm_combo: { label: "Locations + Contacts + Phones", color: "bg-emerald-100 text-emerald-700" },
   poll_locations: { label: "Locations + Zones", color: "bg-blue-100 text-blue-700" },
