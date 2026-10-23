@@ -38,10 +38,10 @@ export const POST = withRole("SUPERVISOR", async (req, { session }) => {
     );
   }
 
-  // Supervisors can only generate lower roles
-  if (session.role === "SUPERVISOR" && (role === "ADMIN" || role === "SUPERVISOR")) {
+  // Supervisors can create any role except Admin
+  if (session.role === "SUPERVISOR" && role === "ADMIN") {
     return NextResponse.json(
-      { error: "Supervisors can only generate PINs for lower roles" },
+      { error: "Only admins can create Admin accounts" },
       { status: 403 }
     );
   }
@@ -59,11 +59,19 @@ export const POST = withRole("SUPERVISOR", async (req, { session }) => {
     }
   }
 
+  // Named accounts inherit the role's category (shared) PIN if one is set,
+  // so people log in with their own name + the same PIN as the rest of the role.
+  let inheritedPin = "";
+  if (mode === "named" && !password) {
+    const holder = await db.user.findFirst({ where: { role, pinMode: "shared" } });
+    if (holder?.sharedPin) inheritedPin = holder.sharedPin;
+  }
+
   const pins: { pin: string; displayName: string }[] = [];
   const users = [];
 
   for (let i = 0; i < effectiveCount; i++) {
-    const pin = password || generatePin();
+    const pin = password || inheritedPin || generatePin();
     const pinHash = await hash(pin, 10);
     const displayName = customName || `${mode} ${role.replace("_", " ")} ${Date.now()}-${i}`;
 
