@@ -936,7 +936,7 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
   const canEditDashboard =
     session.role === "ADMIN" || session.role === "SUPERVISOR";
 
-  const showZoneFilter = session.role !== "ZONE_CAPTAIN";
+  const showZoneFilter = true; // zone captains use it to pick their zone(s)
 
   if (loading) {
     return (

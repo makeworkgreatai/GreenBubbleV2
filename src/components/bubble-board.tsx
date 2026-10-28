@@ -156,12 +156,11 @@ function dayBgClassHeader(label: string): string {
 
 function canUserEditZone(
   userRole: string,
-  userZoneId: number | null,
-  targetZoneId: number
+  _userZoneId: number | null,
+  _targetZoneId: number
 ): boolean {
-  if (userRole === "VIEWER") return false;
-  if (userRole === "ZONE_CAPTAIN") return userZoneId === targetZoneId;
-  return true;
+  // Viewers are read-only; everyone else (incl. Zone Captains) can edit.
+  return userRole !== "VIEWER";
 }
 
 function EyeIcon({ open }: { open: boolean }) {

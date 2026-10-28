@@ -3,14 +3,11 @@ import { db } from "@/lib/db";
 import { withAuth } from "@/lib/middleware";
 
 export const GET = withAuth(async (_req, { session }) => {
-  const isZoneCaptain = session.role === "ZONE_CAPTAIN";
-
+  // Everyone receives all locations; zone captains narrow the view with the
+  // multi-select zone filter (so they can cover one or several zones).
   const [milestones, locations] = await Promise.all([
     db.statusMilestone.findMany({ orderBy: { displayOrder: "asc" } }),
     db.location.findMany({
-      where: isZoneCaptain && session.zoneId
-        ? { zoneId: session.zoneId }
-        : undefined,
       include: {
         zone: true,
         statuses: {

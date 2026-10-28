@@ -65,12 +65,12 @@ export function hasMinRole(userRole: Role, requiredRole: Role): boolean {
 
 export function canEditZone(
   userRole: Role,
-  userZoneId: number | null,
-  targetZoneId: number
+  _userZoneId: number | null,
+  _targetZoneId: number
 ): boolean {
-  if (userRole === "VIEWER") return false;
-  if (userRole === "ZONE_CAPTAIN") return userZoneId === targetZoneId;
-  return true; // ADMIN, SUPERVISOR, PHONE_OPERATOR can edit all zones
+  // Viewers are read-only; all other roles (including Zone Captains) can edit.
+  // Zone captains focus on their zone(s) via the multi-select view filter.
+  return userRole !== "VIEWER";
 }
 
 export function canViewZone(
