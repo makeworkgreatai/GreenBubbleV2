@@ -20,13 +20,13 @@ const SIGNATURES: Record<string, (headers: string[]) => boolean> = {
   // Polls_Elec — has lat/lng/city/precincts (the richest GIS file)
   polls_elec: (h) => h.includes("latitude") && h.includes("longitude") && h.includes("precincts"),
   // VLM / Coordinator combo sheet — has poll code + zone + VLM + phones (locations + contacts in one)
-  vlm_combo: (h) => h.includes("poll code") && h.includes("vlm") && h.includes("zone"),
+  vlm_combo: (h) => h.includes("poll code") && (h.includes("vlm") || h.includes("vlm name")) && h.includes("zone"),
   // Poll_Locations — simpler: poll_id, location_line_1, zone
   poll_locations: (h) => h.includes("location_line_1") && h.includes("zone") && !h.includes("latitude"),
   // Precincts_List — poll_id, precinct_id, municipal, label
   precincts_list: (h) => h.includes("precinct_id") && h.includes("municipal") && h.includes("label"),
   // Coordinator contact sheet (contacts only — no zone column)
-  contacts: (h) => (h.includes("vlm") || h.includes("vlm cell phone")) && h.includes("poll code") && !h.includes("zone"),
+  contacts: (h) => (h.includes("vlm") || h.includes("vlm name") || h.includes("vlm cell phone") || h.includes("vlm cell")) && h.includes("poll code") && !h.includes("zone"),
   // SMS phone assignments — poll_id + sms_phone (or phone)
   sms_phones: (h) => (h.includes("sms_phone") || h.includes("phone")) && (h.includes("poll_id") || h.includes("poll code")) && !h.includes("vlm"),
   // Legacy logins — username, password, role
@@ -369,7 +369,7 @@ async function importVlmCombo(rows: Record<string, string>[]) {
     const address = row["poll_addr1"] || "";
     const city = row["poll_addr3"] || "";
     const zoneNum = parseInt(row["zone"] || "0");
-    const vlmName = row["vlm"] || "";
+    const vlmName = row["vlm"] || row["vlm name"] || "";
 
     if (!pollId || !name) {
       result.errors.push(`Row ${i + 2}: Missing poll code or name`);
@@ -386,11 +386,13 @@ async function importVlmCombo(rows: Record<string, string>[]) {
 
     // Build phones
     const phones: { label: string; number: string }[] = [];
-    const vlmCell = row["vlm cell phone"] || "";
+    const vlmCell = row["vlm cell phone"] || row["vlm cell"] || "";
     const boeCell = row["boe cell phone"] || "";
     const landline = row["landline"] || "";
     const isPhone = row["is phone number"] || "";
+    const electionDay = row["election day phone"] || "";
     if (vlmCell) phones.push({ label: "VLM Cell", number: formatPhone(vlmCell) });
+    if (electionDay) phones.push({ label: "Election Day", number: formatPhone(electionDay) });
     if (boeCell) phones.push({ label: "BOE Cell", number: formatPhone(boeCell) });
     if (landline) phones.push({ label: "Landline", number: formatPhone(landline) });
     if (isPhone && isPhone !== boeCell && isPhone !== landline) {
@@ -506,7 +508,7 @@ async function importContacts(rows: Record<string, string>[]) {
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const pollId = row["poll code"] || row["poll_id"] || "";
-    const vlmName = row["vlm"] || "";
+    const vlmName = row["vlm"] || row["vlm name"] || "";
 
     if (!pollId) {
       result.errors.push(`Row ${i + 2}: Missing poll code`);
@@ -522,12 +524,14 @@ async function importContacts(rows: Record<string, string>[]) {
     }
 
     const phones: { label: string; number: string }[] = [];
-    const vlmCell = row["vlm cell phone"] || "";
+    const vlmCell = row["vlm cell phone"] || row["vlm cell"] || "";
     const boeCell = row["boe cell phone"] || "";
     const landline = row["landline"] || "";
     const isPhone = row["is phone number"] || "";
+    const electionDay = row["election day phone"] || "";
 
     if (vlmCell) phones.push({ label: "VLM Cell", number: formatPhone(vlmCell) });
+    if (electionDay) phones.push({ label: "Election Day", number: formatPhone(electionDay) });
     if (boeCell) phones.push({ label: "BOE Cell", number: formatPhone(boeCell) });
     if (landline) phones.push({ label: "Landline", number: formatPhone(landline) });
     if (isPhone && isPhone !== boeCell && isPhone !== landline) {
