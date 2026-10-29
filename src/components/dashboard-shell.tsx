@@ -938,6 +938,12 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
 
   const showZoneFilter = true; // zone captains use it to pick their zone(s)
 
+  // Phone Operators don't track these milestones — hide their columns for that role.
+  const boardMilestones =
+    session.role === "PHONE_OPERATOR"
+      ? milestones.filter((m) => !["monday_delivery", "building_open"].includes(m.key))
+      : milestones;
+
   if (loading) {
     return (
       <main className="max-w-[1600px] mx-auto p-4">
@@ -1129,7 +1135,7 @@ export function DashboardShell({ session }: { session: SessionPayload }) {
       {/* Board */}
       <BubbleBoard
         locations={filtered}
-        milestones={milestones}
+        milestones={boardMilestones}
         canEdit={canEdit}
         userRole={session.role}
         userZoneId={session.zoneId}
