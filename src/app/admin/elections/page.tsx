@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MobileAdminNav } from "@/components/mobile-admin-nav";
+import { AdminHeader } from "@/components/admin-header";
 import { utcToEasternLocal } from "@/lib/time";
 
 interface Election {
@@ -90,15 +90,10 @@ export default function ElectionsPage() {
 
   return (
     <>
-      <MobileAdminNav />
-      <main className="max-w-[1000px] mx-auto p-4 md:p-6 min-h-screen">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-xl md:text-2xl font-black">Manage Elections</h1>
-            <p className="text-sm text-gray-500">Tag time ranges as named elections (real or test) to organize the audit log.</p>
-          </div>
-          <a href="/admin/audit" className="px-3 py-2 rounded-md border text-xs font-bold hover:bg-gray-100">Audit Log</a>
-        </div>
+      <AdminHeader theme="elections" icon="🗳️" title="Manage Elections" subtitle="Tag time ranges as named elections (real or test)" maxW="max-w-[1000px]">
+        <a href="/admin/audit" className="rounded-md bg-white/20 hover:bg-white/30 px-3 py-2 text-xs md:text-sm font-bold whitespace-nowrap">Audit Log</a>
+      </AdminHeader>
+      <main className="max-w-[1000px] mx-auto p-4 md:p-6 pb-24 min-h-screen">
 
         {/* Add election */}
         <form onSubmit={handleCreate} className="rounded-lg border-2 border-indigo-200 bg-indigo-50 p-4 mb-6">

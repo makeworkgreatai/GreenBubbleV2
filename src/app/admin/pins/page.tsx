@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MobileAdminNav } from "@/components/mobile-admin-nav";
+import { AdminHeader } from "@/components/admin-header";
 
 interface UserAccount {
   id: number;
@@ -229,22 +229,12 @@ export default function AccountManagementPage() {
 
   return (
     <>
-    <MobileAdminNav />
-    <main className="max-w-[1000px] mx-auto p-4 md:p-6 min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-xl md:text-2xl font-black">Account Management</h1>
-          <p className="text-sm text-gray-500">Shared PINs for each role</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => loginFileRef.current?.click()} disabled={importing} className="px-3 py-2 rounded-md bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 disabled:opacity-50">
-            {importing ? "Importing..." : "Import Logins"}
-          </button>
-          <input ref={loginFileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleImportLogins} />
-          <button onClick={handleExpireAll} className="px-3 py-2 rounded-md border border-red-300 text-red-600 text-xs font-bold hover:bg-red-50">Expire All</button>
-          <a href="/" className="px-3 py-2 rounded-md border text-xs font-bold hover:bg-gray-100">Dashboard</a>
-        </div>
-      </div>
+    <AdminHeader theme="pins" icon="🔑" title="Account Management" subtitle="Shared PINs for each role" maxW="max-w-[1000px]">
+      <button onClick={() => loginFileRef.current?.click()} disabled={importing} className="rounded-md bg-white/20 hover:bg-white/30 px-3 py-2 text-xs md:text-sm font-bold whitespace-nowrap disabled:opacity-50">{importing ? "Importing..." : "Import Logins"}</button>
+      <input ref={loginFileRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleImportLogins} />
+      <button onClick={handleExpireAll} className="rounded-md bg-red-500/80 hover:bg-red-500 px-3 py-2 text-xs md:text-sm font-bold whitespace-nowrap">Expire All</button>
+    </AdminHeader>
+    <main className="max-w-[1000px] mx-auto p-4 md:p-6 pb-24 min-h-screen">
 
       {/* New PIN banner */}
       {newPin && (

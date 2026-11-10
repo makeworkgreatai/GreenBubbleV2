@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { MobileAdminNav } from "@/components/mobile-admin-nav";
+import { AdminHeader } from "@/components/admin-header";
 
 interface FileResult {
   name: string;
@@ -103,15 +103,8 @@ export default function ImportPage() {
 
   return (
     <>
-    <MobileAdminNav />
-    <main className="max-w-3xl mx-auto p-4 md:p-6 min-h-screen">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-black">Import Data</h1>
-          <p className="text-sm text-gray-500">Drop your files — we'll figure out what's what</p>
-        </div>
-        <a href="/" className="px-4 py-2 rounded-md border text-sm font-bold hover:bg-gray-100 shrink-0">Back to Dashboard</a>
-      </div>
+    <AdminHeader theme="import" icon="📥" title="Import Data" subtitle="Drop your files — we'll figure out what's what" maxW="max-w-3xl" />
+    <main className="max-w-3xl mx-auto p-4 md:p-6 pb-24 min-h-screen">
 
       {/* Drop zone */}
       <label

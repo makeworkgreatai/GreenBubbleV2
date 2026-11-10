@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MobileAdminNav } from "@/components/mobile-admin-nav";
+import { AdminHeader } from "@/components/admin-header";
 
 interface LoginEntry {
   id: number;
@@ -55,15 +55,8 @@ export default function LoginLogsPage() {
 
   return (
     <>
-    <MobileAdminNav />
-    <main className="max-w-[1200px] mx-auto p-4 md:p-6 min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-xl md:text-2xl font-black">Login Activity</h1>
-          <p className="text-sm text-gray-500">{total} total login attempts</p>
-        </div>
-        <a href="/" className="px-3 py-2 rounded-md border text-xs md:text-sm font-bold hover:bg-gray-100 self-start">Dashboard</a>
-      </div>
+    <AdminHeader theme="logins" icon="🔐" title="Login Activity" subtitle={`${total} total login attempts`} />
+    <main className="max-w-[1200px] mx-auto p-4 md:p-6 pb-24 min-h-screen">
 
       {/* Mobile cards */}
       <div className="md:hidden space-y-2">

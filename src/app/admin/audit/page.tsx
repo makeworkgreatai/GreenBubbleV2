@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MobileAdminNav } from "@/components/mobile-admin-nav";
+import { AdminHeader } from "@/components/admin-header";
 
 interface AuditEntry {
   id: number;
@@ -137,32 +137,18 @@ export default function AuditPage() {
 
   return (
     <>
-    <MobileAdminNav />
-    <main className="max-w-[1400px] mx-auto p-4 md:p-6 min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-black">Audit Log</h1>
-          <p className="text-sm text-gray-500">
-            {(search || fieldFilter || userFilter || locationFilter || electionFilter || dateFrom || dateTo)
-              ? `${total.toLocaleString()} entries match filters`
-              : `${total.toLocaleString()} total entries`}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleDownloadFiltered}
-            className="px-3 md:px-4 py-2 rounded-md bg-blue-600 text-white text-xs md:text-sm font-bold hover:bg-blue-700"
-          >
-            Download Filtered CSV
-          </button>
-          <a
-            href="/"
-            className="px-3 md:px-4 py-2 rounded-md border text-xs md:text-sm font-bold hover:bg-gray-100"
-          >
-            Back to Dashboard
-          </a>
-        </div>
-      </div>
+    <AdminHeader
+      theme="audit"
+      icon="📋"
+      title="Audit Log"
+      subtitle={(search || fieldFilter || userFilter || locationFilter || electionFilter || dateFrom || dateTo)
+        ? `${total.toLocaleString()} entries match filters`
+        : `${total.toLocaleString()} total entries`}
+      maxW="max-w-[1400px]"
+    >
+      <button onClick={handleDownloadFiltered} className="rounded-md bg-white/20 hover:bg-white/30 px-3 py-2 text-xs md:text-sm font-bold whitespace-nowrap">Download CSV</button>
+    </AdminHeader>
+    <main className="max-w-[1400px] mx-auto p-4 md:p-6 pb-24 min-h-screen">
 
       {/* Filters */}
       <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-4">

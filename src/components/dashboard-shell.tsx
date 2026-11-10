@@ -263,13 +263,13 @@ function AuditCacheBar({ children }: { children?: React.ReactNode }) {
   const sinceText = oldest ? `since ${new Date(oldest).toLocaleDateString("en-US", { timeZone: "America/New_York" })}` : "";
 
   return (
-    <div className="flex items-center justify-between px-4 py-1 bg-gray-900 text-gray-300 text-xs font-medium">
+    <div className="flex flex-wrap items-center justify-between gap-y-1.5 px-4 py-1.5 bg-gray-900 text-gray-300 text-xs font-medium">
       <a href="/admin/audit" className="flex items-center gap-2 hover:text-white cursor-pointer">
         <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
         <span>Audit Log: <span className="font-bold text-white">{count.toLocaleString()}</span> entries {sinceText}</span>
         <span className="ml-1 underline">View</span>
       </a>
-      {children && <div className="flex items-center gap-2">{children}</div>}
+      {children && <div className="flex flex-wrap items-center gap-1.5">{children}</div>}
     </div>
   );
 }

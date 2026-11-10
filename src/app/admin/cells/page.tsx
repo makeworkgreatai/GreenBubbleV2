@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { MobileAdminNav } from "@/components/mobile-admin-nav";
+import { AdminHeader } from "@/components/admin-header";
 
 interface LocationPhone {
   id: number;
@@ -165,43 +165,15 @@ export default function CellManagementPage() {
 
   return (
     <>
-    <MobileAdminNav />
-    <main className="max-w-[1200px] mx-auto p-4 md:p-6 min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-black">Cell Management</h1>
-          <p className="text-xs md:text-sm text-gray-500">
-            {assignedCount} of {totalCount} locations have an assigned phone
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => fileRef.current?.click()}
-            disabled={importing}
-            className="px-3 md:px-4 py-2 rounded-md bg-pink-600 text-white text-xs md:text-sm font-bold hover:bg-pink-700 disabled:opacity-50"
-          >
-            {importing ? "Importing..." : "Import CSV"}
-          </button>
-          <input ref={fileRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleImport} />
-          <button
-            onClick={handleExport}
-            className="px-3 md:px-4 py-2 rounded-md border text-xs md:text-sm font-bold hover:bg-gray-100"
-          >
-            Export CSV
-          </button>
-          {assignedCount > 0 && (
-            <button
-              onClick={handleClearAll}
-              className="px-3 md:px-4 py-2 rounded-md border border-red-300 text-red-600 text-xs md:text-sm font-bold hover:bg-red-50"
-            >
-              Clear All
-            </button>
-          )}
-          <a href="/" className="px-3 md:px-4 py-2 rounded-md border text-xs md:text-sm font-bold hover:bg-gray-100">
-            Back to Dashboard
-          </a>
-        </div>
-      </div>
+    <AdminHeader theme="cells" icon="📱" title="Cell Management" subtitle={`${assignedCount} of ${totalCount} locations have an assigned phone`}>
+      <button onClick={() => fileRef.current?.click()} disabled={importing} className="rounded-md bg-white/20 hover:bg-white/30 px-3 py-2 text-xs md:text-sm font-bold whitespace-nowrap disabled:opacity-50">{importing ? "Importing..." : "Import CSV"}</button>
+      <input ref={fileRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={handleImport} />
+      <button onClick={handleExport} className="rounded-md bg-white/20 hover:bg-white/30 px-3 py-2 text-xs md:text-sm font-bold whitespace-nowrap">Export CSV</button>
+      {assignedCount > 0 && (
+        <button onClick={handleClearAll} className="rounded-md bg-red-500/80 hover:bg-red-500 px-3 py-2 text-xs md:text-sm font-bold whitespace-nowrap">Clear All</button>
+      )}
+    </AdminHeader>
+    <main className="max-w-[1200px] mx-auto p-4 md:p-6 pb-24 min-h-screen">
 
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-3 mb-4">
